@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="源文件\CmdLine_Imp">
+      <UniqueIdentifier>{c571f34f-1d76-4086-82b4-e1baa9477396}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\CommandDefinition">
+      <UniqueIdentifier>{69b17d12-c043-4f46-a172-9124b28ec2da}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\CommandDefinition">
+      <UniqueIdentifier>{c5daaf1b-b593-4159-b67f-0f3eeab3c2f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\CommandDefinition\Commands">
+      <UniqueIdentifier>{58620118-7773-48a2-9495-e2b97fbfa5f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Assistants_Imp">
+      <UniqueIdentifier>{ae707612-d731-4c0b-b07d-ce0a7ba2746a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\ZUCmdAssistants">
+      <UniqueIdentifier>{02b1ec88-519d-44a6-a363-3ed45b1775e7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ZhousUtility.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ZUCmdLine.cpp">
+      <Filter>源文件\CmdLine_Imp</Filter>
+    </ClCompile>
+    <ClCompile Include="ZUCmdManInit.cpp">
+      <Filter>源文件\CmdLine_Imp</Filter>
+    </ClCompile>
+    <ClCompile Include="Command_Help.cpp">
+      <Filter>源文件\CommandDefinition</Filter>
+    </ClCompile>
+    <ClCompile Include="StuSystem.cpp">
+      <Filter>源文件\CommandDefinition</Filter>
+    </ClCompile>
+    <ClCompile Include="CustomerIOManipulator.cpp">
+      <Filter>源文件\Assistants_Imp</Filter>
+    </ClCompile>
+    <ClCompile Include="DateAndTimeEx.cpp">
+      <Filter>源文件\Assistants_Imp</Filter>
+    </ClCompile>
+    <ClCompile Include="StringEx.cpp">
+      <Filter>源文件\Assistants_Imp</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ZUCmdLineErr.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ZUCmdLine.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ZUCmdOptionPreset.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CommandsDefinition.h">
+      <Filter>头文件\CommandDefinition</Filter>
+    </ClInclude>
+    <ClInclude Include="Command_Help.h">
+      <Filter>头文件\CommandDefinition\Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="StuSystem.h">
+      <Filter>头文件\CommandDefinition\Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="ZUCmdAssistants.h">
+      <Filter>头文件\ZUCmdAssistants</Filter>
+    </ClInclude>
+    <ClInclude Include="ZUCmdAssistantsT.h">
+      <Filter>头文件\ZUCmdAssistants</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
