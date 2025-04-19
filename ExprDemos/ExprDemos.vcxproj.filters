@@ -13,30 +13,10 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="头文件\CusDef">
-      <UniqueIdentifier>{3336f6e6-e4af-487b-9a3f-af0142bfb7e7}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ExprPreset.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="ExprTypes.h">
-      <Filter>头文件\CusDef</Filter>
-    </ClInclude>
-    <ClInclude Include="PresetFuncs.h">
-      <Filter>头文件\CusDef</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="ExprTypes.cpp">
-      <Filter>头文件\CusDef</Filter>
-    </ClCompile>
-    <ClCompile Include="ExprOperManInit.cpp">
-      <Filter>头文件\CusDef</Filter>
-    </ClCompile>
-    <ClCompile Include="PresetFuncs.cpp">
-      <Filter>头文件\CusDef</Filter>
+    <ClCompile Include="main.cpp">
+      <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

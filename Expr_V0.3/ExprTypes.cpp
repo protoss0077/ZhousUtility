@@ -85,7 +85,7 @@ std::string ExprNum::ToString() const {
   return std::string(buf);
 }
 //
-[[nodiscard]] ResultPtr_Ty ExprNum::Calculate(VarTablePtr_Ty varTable) const {
+[[nodiscard]] ResultPtr_Ty ExprNum::Calculate(VarTablePtr_Ty varTable) {
   assert(GetType() == DataType::Value);
   auto res = std::make_shared<ExprNum>(Data);
   return std::static_pointer_cast<ExprDataBase>(res);
@@ -127,7 +127,7 @@ std::string ExprVar::ToString() const {
   return std::string(buf);
 }
 //
-[[nodiscard]] ResultPtr_Ty ExprVar::Calculate(VarTablePtr_Ty varTable) const {
+[[nodiscard]] ResultPtr_Ty ExprVar::Calculate(VarTablePtr_Ty varTable) {
   assert(GetType() == DataType::Variable);
   if (varTable == nullptr)
     throw std::runtime_error(NullVarTableMsg + Data);
@@ -199,8 +199,7 @@ std::string ExprOper::ToString() const {
  * class ExprOperWithArgs definition *
  ***************************
  */
-ExprOperWithArgs::ExprOperWithArgs(OperCPtr_Ty opCPtr,
-                                   const ArgPtrColl_Ty &args)
+ExprOperWithArgs::ExprOperWithArgs(OperCPtr_Ty opCPtr, ArgPtrColl_Ty &args)
     : OperCPtr{opCPtr}, Args{args} {}
 ExprOperWithArgs::ExprOperWithArgs(OperCPtr_Ty opCPtr, ArgPtrColl_Ty &&args)
     : OperCPtr{opCPtr}, Args{std::move(args)} {}
@@ -224,14 +223,14 @@ bool ExprOperWithArgs::IsValid(VarTablePtr_Ty varTable) const {
 }
 //
 [[nodiscard]] ResultPtr_Ty
-ExprOperWithArgs::Calculate(VarTablePtr_Ty varTablePtr) const {
+ExprOperWithArgs::Calculate(VarTablePtr_Ty varTablePtr) {
   assert(GetType() == DataType::OperWithArgs);
   if (!IsValid(varTablePtr))
     throw std::runtime_error(InvalidOperOrArgMsg);
   return OperCPtr->Execute(Args, varTablePtr);
 }
 //
-bool ExprOperWithArgs::TrySimplify(ResultPtr_Ty &res) const {
+bool ExprOperWithArgs::TrySimplify(ResultPtr_Ty &res) {
   if (GetType() != DataType::OperWithArgs)
     return false;
   // 只有Args都为值类型时才化简
@@ -280,15 +279,15 @@ size_t ExprOperMan::SearchSymbol(const std::string_view &symbol) {
   return InvalidPos;
 }
 //
-bool ExprOperMan::SymbolSynaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos,
-                                   size_t &resFPos) {
+bool ExprOperMan::SymbolOperSyntaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos,
+                                        size_t &resFPos) {
   if (tarPos >= siColl.size())
     throw std::runtime_error("查询位置位于符号表之外！");
   const auto &operColl = ExprOperMan::GetColl();
   for (size_t curPos = 0; curPos < operColl.size(); ++curPos) {
     if (operColl[curPos].GetMatchSymbol() == siColl[tarPos].first) {
-      if (ExprSynaxPaser::SymbolSynaxVarifier(operColl[curPos], siColl,
-                                              tarPos)) {
+      if (ExprSyntaxPaser::SymbolSyntaxVarifier(operColl[curPos], siColl,
+                                                tarPos)) {
         resFPos = curPos;
         return true;
       }
@@ -297,6 +296,41 @@ bool ExprOperMan::SymbolSynaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos,
   resFPos = InvalidPos;
   return false;
 }
+//
+bool ExprOperMan::SymbolVarSyntaxMatch(SymbolInfoColl_Ty siColl,
+                                       size_t tarPos) {
+  if (siColl[tarPos].second != DataType::Variable)
+    return false;
+  // 可以出现在表达式开头，如果有前缀，前缀必然是符号
+  if (tarPos > 1) {
+    if (siColl[tarPos - 1].second != DataType::Oper)
+      return false;
+  }
+  // 可以出现在表达式末尾，如果有后缀，后缀必然是符号
+  if (tarPos + 1 < siColl.size()) {
+    if (siColl[tarPos + 1].second != DataType::Oper)
+      return false;
+  }
+  return true;
+}
+//
+bool ExprOperMan::SymbolNumSyntaxMatch(SymbolInfoColl_Ty siColl,
+                                       size_t tarPos) {
+  if (siColl[tarPos].second != DataType::Value)
+    return false;
+  // 可以出现在表达式开头，如果有前缀，前缀必然是符号
+  if (tarPos > 1) {
+    if (siColl[tarPos - 1].second != DataType::Oper)
+      return false;
+  }
+  // 可以出现在表达式末尾，如果有后缀，后缀必然是符号
+  if (tarPos + 1 < siColl.size()) {
+    if (siColl[tarPos + 1].second != DataType::Oper)
+      return false;
+  }
+  return true;
+}
+
 //
 size_t ExprOperMan::SearchInName(const char *tarStr, size_t tarStrLen) {
   if (tarStr == nullptr)
@@ -623,7 +657,7 @@ bool ExprTeleprompter::IsOriginValid(const std::string_view &tar) {
 //
 bool ExprTeleprompter::TryGetSufPosNum(const std::string &tarStr, size_t curPos,
                                        size_t &sufPos) {
-  if (!IsDigit(tarStr[curPos])) {
+  if (!IsDigit(tarStr[curPos], true)) {
     sufPos = InvalidPos;
     return false;
   }
@@ -1001,11 +1035,6 @@ void ExprTeleprompter::ToUpperStringOnSite(std::string &tar) {
     tar[cnt] = std::toupper(tar[cnt]);
 }
 //
-void ExprTeleprompter::ToUpperStringOnSite(std::string_view &tar) {
-  for (size_t cnt = 0; cnt < tar.size(); ++cnt)
-    tar[cnt] = std::toupper(tar[cnt]);
-}
-//
 std::string ExprTeleprompter::ToUpperStringCpy(const char *tarStr,
                                                size_t tarStrLen) {
   std::string res(tarStr, tarStrLen);
@@ -1034,34 +1063,34 @@ bool ExprTeleprompter::IsValidCString(const char *tarStr, size_t tarStrLen) {
   return tarStrLen >= cnt;
 }
 /***************************
- * class ExprSynaxPaser's definition *
+ * class ExprSyntaxPaser's definition *
  ***************************
  */
 /* static member's definition
  */
-std::stack<ArgPtr_Ty> ExprSynaxPaser::ArgStk;           // 值栈
-std::stack<OperCPtr_Ty> ExprSynaxPaser::OpStk;          // 符号栈
-std::vector<std::string> ExprSynaxPaser::VariableTable; // 参数表
+std::stack<ArgPtr_Ty> ExprSyntaxPaser::ArgStk;           // 值栈
+std::stack<OperCPtr_Ty> ExprSyntaxPaser::OpStk;          // 符号栈
+std::vector<std::string> ExprSyntaxPaser::VariableTable; // 参数表
 // 多参时的计数器,执行前/后缀后清零
-size_t ExprSynaxPaser::CurrentArgCounter = 0;
+size_t ExprSyntaxPaser::CurrentArgCounter = 0;
 /* public member's definition
  */
-ResultPtr_Ty ExprSynaxPaser::TrySynaxPaser(const char *tarStr,
-                                           size_t tarStrLen) {
+ResultPtr_Ty ExprSyntaxPaser::TrySyntaxPaser(const char *tarStr,
+                                             size_t tarStrLen) {
   if (tarStr == nullptr)
     throw std::runtime_error("参数字符串不能为nullptr！");
-  return TrySynaxPaser(std::string_view(tarStr, tarStrLen));
+  return TrySyntaxPaser(std::string_view(tarStr, tarStrLen));
 }
-ResultPtr_Ty ExprSynaxPaser::TrySynaxPaser(const std::string &tarStr) {
+ResultPtr_Ty ExprSyntaxPaser::TrySyntaxPaser(const std::string &tarStr) {
   ExprTeleprompter et(tarStr);
-  return TrySynaxPaser(et);
+  return TrySyntaxPaser(et);
 }
-ResultPtr_Ty ExprSynaxPaser::TrySynaxPaser(const std::string_view tarStr) {
+ResultPtr_Ty ExprSyntaxPaser::TrySyntaxPaser(const std::string_view &tarStr) {
   ExprTeleprompter et(tarStr);
-  return TrySynaxPaser(et);
+  return TrySyntaxPaser(et);
 }
 // !!!
-ResultPtr_Ty ExprSynaxPaser::TrySynaxPaser(ExprTeleprompter &et) {
+ResultPtr_Ty ExprSyntaxPaser::TrySyntaxPaser(ExprTeleprompter &et) {
   Reset();
   OpStk.push(ExprOperMan::GetLeftBrA());
   //
@@ -1069,6 +1098,16 @@ ResultPtr_Ty ExprSynaxPaser::TrySynaxPaser(ExprTeleprompter &et) {
   for (; et.ToNextSymbol(tmpSymbolInfo);) {
     // 数值
     if (tmpSymbolInfo.second == DataType::Value) {
+      //
+      if (!ExprOperMan::SymbolNumSyntaxMatch(et.GetInternalColl(),
+                                              et.GetCurrentPos() - 1)) {
+        throw std::runtime_error(
+            std::string("A Syntax Error ; Symbol: ") +
+            std::string(tmpSymbolInfo.first) +
+            " ; Symbol pos: " + std::to_string(et.GetCurrentPos() - 1) +
+            " ; Symbol Type: " + GetDataTypeString(tmpSymbolInfo.second));
+      }
+      //
       Number_Ty num = std::atof(tmpSymbolInfo.first.data());
       auto numPtr = std::make_shared<ExprNum>(num);
       ArgStk.push(std::static_pointer_cast<ExprDataBase>(numPtr));
@@ -1076,20 +1115,32 @@ ResultPtr_Ty ExprSynaxPaser::TrySynaxPaser(ExprTeleprompter &et) {
     }
     // 变量
     if (tmpSymbolInfo.second == DataType::Variable) {
+      //
+      if (!ExprOperMan::SymbolVarSyntaxMatch(et.GetInternalColl(),
+                                             et.GetCurrentPos() - 1)) {
+        throw std::runtime_error(
+            std::string("A Syntax Error ; Symbol: ") +
+            std::string(tmpSymbolInfo.first) +
+            " ; Symbol pos: " + std::to_string(et.GetCurrentPos() - 1) +
+            " ; Symbol Type: " + GetDataTypeString(tmpSymbolInfo.second));
+      }
+      //
       auto fIter = std::find(VariableTable.begin(), VariableTable.end(),
                              std::string(tmpSymbolInfo.first));
       if (fIter != VariableTable.end())
         continue;
       VariableTable.emplace_back(std::string(tmpSymbolInfo.first));
+      auto varPtr = std::make_shared<ExprVar>(tmpSymbolInfo.first);
+      ArgStk.push(std::static_pointer_cast<ExprDataBase>(varPtr));
       continue;
     }
     // 符号
     if (tmpSymbolInfo.second == DataType::Oper) {
       size_t regId = InvalidPos;
-      if (!ExprOperMan::SymbolSynaxMatch(et.GetInternalColl(),
-                                         et.GetCurrentPos() - 1, regId)) {
+      if (!ExprOperMan::SymbolOperSyntaxMatch(et.GetInternalColl(),
+                                              et.GetCurrentPos() - 1, regId)) {
         throw std::runtime_error(
-            std::string("A Synax Error ; Symbol: ") +
+            std::string("A Syntax Error ; Symbol: ") +
             std::string(tmpSymbolInfo.first) +
             " ; Symbol pos: " + std::to_string(et.GetCurrentPos() - 1) +
             " ; Symbol Type: " + GetDataTypeString(tmpSymbolInfo.second));
@@ -1126,12 +1177,12 @@ ResultPtr_Ty ExprSynaxPaser::TrySynaxPaser(ExprTeleprompter &et) {
   // 后续处理
   HandleToLBR();
   OpStk.pop();
-  if (ArgStk.size() != 1 && !OpStk.empty())
+  if (ArgStk.size() != 1 || !OpStk.empty())
     throw std::runtime_error("解析失败！");
   return ArgStk.top();
 }
 //
-void ExprSynaxPaser::Reset() {
+void ExprSyntaxPaser::Reset() {
   for (; !ArgStk.empty();)
     ArgStk.pop();
   //
@@ -1141,9 +1192,9 @@ void ExprSynaxPaser::Reset() {
   CurrentArgCounter = 0;
 }
 //
-bool ExprSynaxPaser::SymbolSynaxVarifier(const ExprOper &opRef,
-                                         const SymbolInfoColl_Ty &siColl,
-                                         size_t tarPos) {
+bool ExprSyntaxPaser::SymbolSyntaxVarifier(const ExprOper &opRef,
+                                           const SymbolInfoColl_Ty &siColl,
+                                           size_t tarPos) {
   if (opRef.GetOpCategory() == OperCategory::LBracket) {
     return LeftBracketSyntax(siColl, tarPos);
   }
@@ -1154,7 +1205,7 @@ bool ExprSynaxPaser::SymbolSynaxVarifier(const ExprOper &opRef,
     return DelimiterSyntax(siColl, tarPos);
   }
   if (opRef.GetOpCategory() == OperCategory::Prefix) {
-    if (opRef.GetNeededArgCount() > 1) {
+    if (opRef.GetNeededArgsCount() > 1) {
       return PrefixNeedArgs(siColl, tarPos);
     } else {
       return PrefixSingle(siColl, tarPos);
@@ -1164,7 +1215,7 @@ bool ExprSynaxPaser::SymbolSynaxVarifier(const ExprOper &opRef,
     return InfixDoubleArgs(siColl, tarPos);
   }
   if (opRef.GetOpCategory() == OperCategory::Suffix) {
-    size_t nac = opRef.GetNeededArgCount();
+    size_t nac = opRef.GetNeededArgsCount();
     switch (nac) {
     case 0:
       return SuffixNone(siColl, tarPos);
@@ -1175,7 +1226,7 @@ bool ExprSynaxPaser::SymbolSynaxVarifier(const ExprOper &opRef,
     }
   }
   if (opRef.GetOpCategory() == OperCategory::PrefOrSuff) {
-    size_t nac = opRef.GetNeededArgCount();
+    size_t nac = opRef.GetNeededArgsCount();
     switch (nac) {
     case 0:
       return SuffixNone(siColl, tarPos);
@@ -1189,8 +1240,8 @@ bool ExprSynaxPaser::SymbolSynaxVarifier(const ExprOper &opRef,
 }
 /* private member's definition
  */
-bool ExprSynaxPaser::PrefixSingle(const SymbolInfoColl_Ty &siColl,
-                                  size_t tarPos) {
+bool ExprSyntaxPaser::PrefixSingle(const SymbolInfoColl_Ty &siColl,
+                                   size_t tarPos) {
   if (siColl[tarPos].second != DataType::Oper)
     return false;
   // 不会在结尾出现
@@ -1207,8 +1258,8 @@ bool ExprSynaxPaser::PrefixSingle(const SymbolInfoColl_Ty &siColl,
   return false;
 }
 //
-bool ExprSynaxPaser::PrefixNeedArgs(const SymbolInfoColl_Ty &siColl,
-                                    size_t tarPos) {
+bool ExprSyntaxPaser::PrefixNeedArgs(const SymbolInfoColl_Ty &siColl,
+                                     size_t tarPos) {
   if (siColl[tarPos].second != DataType::Oper)
     return false;
   // 不会在结尾出现
@@ -1221,8 +1272,8 @@ bool ExprSynaxPaser::PrefixNeedArgs(const SymbolInfoColl_Ty &siColl,
   return false;
 }
 //
-bool ExprSynaxPaser::InfixDoubleArgs(const SymbolInfoColl_Ty &siColl,
-                                     size_t tarPos) {
+bool ExprSyntaxPaser::InfixDoubleArgs(const SymbolInfoColl_Ty &siColl,
+                                      size_t tarPos) {
   if (siColl[tarPos].second != DataType::Oper)
     return false;
   // 不会在表达式开头、结尾出现
@@ -1249,8 +1300,8 @@ bool ExprSynaxPaser::InfixDoubleArgs(const SymbolInfoColl_Ty &siColl,
   return true;
 }
 //
-bool ExprSynaxPaser::SuffixNone(const SymbolInfoColl_Ty &siColl,
-                                size_t tarPos) {
+bool ExprSyntaxPaser::SuffixNone(const SymbolInfoColl_Ty &siColl,
+                                 size_t tarPos) {
   if (siColl[tarPos].second != DataType::Oper)
     return false;
   // 可以在表达式开头或结尾
@@ -1277,8 +1328,8 @@ bool ExprSynaxPaser::SuffixNone(const SymbolInfoColl_Ty &siColl,
   return true;
 }
 //
-bool ExprSynaxPaser::SuffixSingle(const SymbolInfoColl_Ty &siColl,
-                                  size_t tarPos) {
+bool ExprSyntaxPaser::SuffixSingle(const SymbolInfoColl_Ty &siColl,
+                                   size_t tarPos) {
   if (siColl[tarPos].second != DataType::Oper)
     return false;
   // 不会在表达式开头
@@ -1299,8 +1350,8 @@ bool ExprSynaxPaser::SuffixSingle(const SymbolInfoColl_Ty &siColl,
   return true;
 }
 //
-bool ExprSynaxPaser::SuffixNeedArgs(const SymbolInfoColl_Ty &siColl,
-                                    size_t tarPos) {
+bool ExprSyntaxPaser::SuffixNeedArgs(const SymbolInfoColl_Ty &siColl,
+                                     size_t tarPos) {
   if (siColl[tarPos].second != DataType::Oper)
     return false;
   // (num)op 出现位置至少是3
@@ -1318,8 +1369,8 @@ bool ExprSynaxPaser::SuffixNeedArgs(const SymbolInfoColl_Ty &siColl,
   return true;
 }
 //
-bool ExprSynaxPaser::LeftBracketSyntax(const SymbolInfoColl_Ty &siColl,
-                                       size_t tarPos) {
+bool ExprSyntaxPaser::LeftBracketSyntax(const SymbolInfoColl_Ty &siColl,
+                                        size_t tarPos) {
   if (siColl[tarPos].second != DataType::Oper)
     return false;
   if (ExprTeleprompter::BracketCategory(siColl[tarPos].first, true) ==
@@ -1336,8 +1387,8 @@ bool ExprSynaxPaser::LeftBracketSyntax(const SymbolInfoColl_Ty &siColl,
   return true;
 }
 //
-bool ExprSynaxPaser::RightBracketSyntax(const SymbolInfoColl_Ty &siColl,
-                                        size_t tarPos) {
+bool ExprSyntaxPaser::RightBracketSyntax(const SymbolInfoColl_Ty &siColl,
+                                         size_t tarPos) {
   if (siColl[tarPos].second != DataType::Oper)
     return false;
   if (ExprTeleprompter::BracketCategory(siColl[tarPos].first, false) ==
@@ -1362,8 +1413,8 @@ bool ExprSynaxPaser::RightBracketSyntax(const SymbolInfoColl_Ty &siColl,
   return true;
 }
 //
-bool ExprSynaxPaser::DelimiterSyntax(const SymbolInfoColl_Ty &siColl,
-                                     size_t tarPos) {
+bool ExprSyntaxPaser::DelimiterSyntax(const SymbolInfoColl_Ty &siColl,
+                                      size_t tarPos) {
   // 只能出现在括号内 这里做了简化，仅判断前后
   if (siColl[tarPos].second != DataType::Oper)
     return false;
@@ -1385,7 +1436,7 @@ bool ExprSynaxPaser::DelimiterSyntax(const SymbolInfoColl_Ty &siColl,
   return true;
 }
 //
-void ExprSynaxPaser::HandleToLBR() {
+void ExprSyntaxPaser::HandleToLBR() {
   for (;;) {
     OperCPtr_Ty topOper = OpStk.top();
     // 左括号中止，不弹出
@@ -1398,7 +1449,7 @@ void ExprSynaxPaser::HandleToLBR() {
       continue;
     }
     //
-    size_t nac = topOper->GetNeededArgCount();
+    size_t nac = topOper->GetNeededArgsCount();
     ArgPtrColl_Ty tmpArgPtrColl;
     if (nac > 2) {
       nac = CurrentArgCounter + 1; // 多参时获取真正的参数数量
@@ -1410,11 +1461,14 @@ void ExprSynaxPaser::HandleToLBR() {
       ArgStk.pop();
     }
     std::reverse(tmpArgPtrColl.begin(), tmpArgPtrColl.end()); // 保证参数次序
-    ExprOperWithArgs eow(topOper, tmpArgPtrColl);
+    std::shared_ptr<ExprOperWithArgs> eow =
+        std::make_shared<ExprOperWithArgs>(topOper, tmpArgPtrColl);
     ResultPtr_Ty resPtr =
         std::static_pointer_cast<ExprDataBase>(std::make_shared<ExprNum>(NAN));
-    eow.TrySimplify(resPtr);
-    ArgStk.push(resPtr);
+    if (eow->TrySimplify(resPtr))
+      ArgStk.push(resPtr);
+    else
+      ArgStk.push(std::static_pointer_cast<ExprDataBase>(eow));
     //
     OpStk.pop();
   }
@@ -1422,11 +1476,11 @@ void ExprSynaxPaser::HandleToLBR() {
 /* HandleTopOper
  * 执行栈顶操作符并弹出!
  */
-void ExprSynaxPaser::HandleTopOper() {
+void ExprSyntaxPaser::HandleTopOper() {
   OperCPtr_Ty topOper = OpStk.top();
   OpStk.pop();
   //
-  size_t nac = topOper->GetNeededArgCount();
+  size_t nac = topOper->GetNeededArgsCount();
   ArgPtrColl_Ty tmpArgPtrColl;
   if (nac > 2) {
     nac = CurrentArgCounter + 1;
@@ -1439,11 +1493,14 @@ void ExprSynaxPaser::HandleTopOper() {
     ArgStk.pop();
   }
   std::reverse(tmpArgPtrColl.begin(), tmpArgPtrColl.end()); // 保证参数次序
-  ExprOperWithArgs eow(topOper, tmpArgPtrColl);
+  std::shared_ptr<ExprOperWithArgs> eow =
+      std::make_shared<ExprOperWithArgs>(topOper, tmpArgPtrColl);
   ResultPtr_Ty resPtr =
       std::static_pointer_cast<ExprDataBase>(std::make_shared<ExprNum>(NAN));
-  eow.TrySimplify(resPtr);
-  ArgStk.push(resPtr);
+  if (eow->TrySimplify(resPtr))
+    ArgStk.push(resPtr);
+  else
+    ArgStk.push(std::static_pointer_cast<ExprDataBase>(eow));
 }
 
 } // namespace Expr

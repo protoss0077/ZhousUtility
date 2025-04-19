@@ -218,7 +218,7 @@ std::string StudentRecord::GenerateID(Major m) {
   size_t majorNum = (size_t)m;
   size_t idNum = ++StuSystemIdCounter;
   char buf[14] = "\0";
-  sprintf_s(buf, 14, "%04d%02d%02d%05d", enrollNum / 100, enrollNum % 100,
+  sprintf_s(buf, 14, "%04zd%02zd%02zd%05zd", enrollNum / 100, enrollNum % 100,
             majorNum, idNum);
   return std::string(buf);
 }
@@ -233,7 +233,7 @@ bool StudentRecord::IsIdMatched(const StudentRecord &stuRd) {
   }
   size_t majorNum = (size_t)stuRd.m_Major;
   char buf[9] = "\0";
-  sprintf_s(buf, 9, "%04d%02d%02d", enrollNum / 100, enrollNum % 100, majorNum);
+  sprintf_s(buf, 9, "%04zd%02zd%02zd", enrollNum / 100, enrollNum % 100, majorNum);
   for (size_t i = 0; i < 8; ++i) {
     if (buf[i] != stuRd.m_Id[i]) {
       return false;
@@ -251,7 +251,7 @@ std::string StudentRecord::DateFmtConvert(const std::string &bdate) {
     }
   }
   char buf[8] = "\0";
-  sprintf_s(buf, 8, "%04d.%02d", dateNum / 100, dateNum % 100);
+  sprintf_s(buf, 8, "%04zd.%02zd", dateNum / 100, dateNum % 100);
   return std::string(buf);
 }
 // static members definition

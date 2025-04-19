@@ -5,7 +5,7 @@ namespace ZUMCAssistants {
 /* static member's initialization */
 std::string IOMTextStyle::DefaultSet = "\x1b[0m";
 //
-inline std::string IOMTextStyle::RGBColor::ToString() const {
+std::string IOMTextStyle::RGBColor::ToString() const {
   if (R == 0 && G == 0 && B == 0) {
     return std::string("");
   }

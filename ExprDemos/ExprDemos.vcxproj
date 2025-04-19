@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{a9fe7abc-2639-48a6-bb12-4ce05ffd679d}</ProjectGuid>
-    <RootNamespace>ExprV03</RootNamespace>
+    <ProjectGuid>{b249681b-32e7-4791-8460-54b4d077c379}</ProjectGuid>
+    <RootNamespace>ExprDemos</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -40,7 +40,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -128,14 +128,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="ExprPreset.h" />
-    <ClInclude Include="ExprTypes.h" />
-    <ClInclude Include="PresetFuncs.h" />
+    <ProjectReference Include="..\Expr_V0.3\Expr_V0.3.vcxproj">
+      <Project>{a9fe7abc-2639-48a6-bb12-4ce05ffd679d}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ExprOperManInit.cpp" />
-    <ClCompile Include="ExprTypes.cpp" />
-    <ClCompile Include="PresetFuncs.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

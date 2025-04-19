@@ -6,13 +6,15 @@ namespace Expr {
  * Forward declaration *
  ***************************
  */
+
+//
 class ExprDataBase;
 class ExprNum;
 class ExprVar;
 class ExprOper;
 class ExprOperWithArgs;
 class ExprTeleprompter;
-class ExprSynaxPaser;
+class ExprSyntaxPaser;
 //
 using ArgPtr_Ty = std::shared_ptr<ExprDataBase>;
 using ResultPtr_Ty = ArgPtr_Ty;
@@ -22,11 +24,9 @@ using OperCPtr_Ty = const ExprOper *;
 using ArgValidation_Ty =
     std::function<bool(const ArgPtrColl_Ty &, VarTablePtr_Ty, size_t)>;
 using OperExecution_Ty =
-    std::function<ResultPtr_Ty(const ArgPtrColl_Ty &, VarTablePtr_Ty)>;
+    std::function<ResultPtr_Ty(ArgPtrColl_Ty &, VarTablePtr_Ty)>;
 using OperHelper_Ty = std::function<std::string(bool)>;
-//
-using SymbolInfo_Ty = std::pair<const std::string_view, DataType>;
-using SymbolInfoColl_Ty = std::vector<SymbolInfo_Ty>;
+
 /* enum class DataType
  * 数据类型
  */
@@ -39,6 +39,9 @@ enum class DataType : unsigned char {
 /* GetDataTypeString
  */
 std::string GetDataTypeString(DataType dt);
+//
+using SymbolInfo_Ty = std::pair<std::string, DataType>;
+using SymbolInfoColl_Ty = std::vector<SymbolInfo_Ty>;
 /* enum class OperPriority
  * 运算符优先级
  * 分为表达式内(读取位置)优先级
@@ -86,10 +89,12 @@ public:
   // 数据类型
   virtual DataType GetType() const = 0;
   // 根据变量表计算值，ExprNum的变量表可以为nullptr
-  virtual [[nodiscard]] ResultPtr_Ty
-  Calculate(VarTablePtr_Ty varTable) const = 0;
+  virtual [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) = 0;
+  //
+  virtual std::string ToString() const = 0;
 };
 /* class ExprNum
+ * 值类型
  */
 class ExprNum final : public ExprDataBase {
 private:
@@ -103,9 +108,9 @@ public:
   //
   void operator=(const ExprNum &other);
   //
-  std::string ToString() const;
+  std::string ToString() const override;
   //
-  [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) const override;
+  [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) override;
   //
   DataType GetType() const override { return DataType::Value; }
   //
@@ -114,6 +119,7 @@ public:
   static Number_Ty GetValue(ArgPtr_Ty numPtr);
 };
 /* class ExprVar
+ * 变量类型
  */
 class ExprVar final : public ExprDataBase {
 private:
@@ -127,9 +133,9 @@ public:
   //
   void operator=(const ExprVar &other);
   //
-  std::string ToString() const;
+  std::string ToString() const override;
   //
-  [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) const override;
+  [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) override;
   //
   DataType GetType() const override { return DataType::Variable; }
   //
@@ -183,12 +189,12 @@ public:
     return ArgVerifier(argColl, varTab, NeededArgsCount);
   }
   //
-  ResultPtr_Ty Execute(const ArgPtrColl_Ty &argColl,
-                       VarTablePtr_Ty varTab) const {
+  ResultPtr_Ty Execute(ArgPtrColl_Ty &argColl, VarTablePtr_Ty varTab) const {
     return Executer(argColl, varTab);
   }
 };
-/*
+/* class ExprOperWithArgs
+ * 未化简的运算符+参数
  */
 class ExprOperWithArgs final : public ExprDataBase {
 private:
@@ -197,15 +203,15 @@ private:
 
 public:
   ExprOperWithArgs() = delete;
-  ExprOperWithArgs(OperCPtr_Ty opCPtr, const ArgPtrColl_Ty &args);
+  ExprOperWithArgs(OperCPtr_Ty opCPtr, ArgPtrColl_Ty &args);
   ExprOperWithArgs(OperCPtr_Ty opCPtr, ArgPtrColl_Ty &&args);
   ExprOperWithArgs(const ExprOperWithArgs &other);
   //
-  std::string ToString() const;
+  std::string ToString() const override;
   //
-  [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) const override;
+  [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) override;
   //
-  DataType GetType() const override { return DataType::Variable; }
+  DataType GetType() const override { return DataType::OperWithArgs; }
   //
   bool IsValid(VarTablePtr_Ty varTable) const;
   /* TrySimplify
@@ -213,7 +219,7 @@ public:
    * 在所有参数均为num时可化简
    * 你需要自行构建一个std::shared_ptr<ExprNum>的指针然后转型为ResultPtr
    */
-  bool TrySimplify(ResultPtr_Ty &resNum) const;
+  bool TrySimplify(ResultPtr_Ty &resNum);
   //
   OperCPtr_Ty GetOperPtr() const { return OperCPtr; }
   //
@@ -237,8 +243,12 @@ public:
   static size_t SearchSymbol(const std::string &tarStr);
   static size_t SearchSymbol(const std::string_view &tarStr);
   //
-  static bool SymbolSynaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos,
-                               size_t &resFPos);
+  static bool SymbolOperSyntaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos,
+                                    size_t &resFPos);
+  //
+  static bool SymbolVarSyntaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos);
+  //
+  static bool SymbolNumSyntaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos);
   //
   static size_t SearchInName(const char *tarStr, size_t tarStrLen);
   static size_t SearchInName(const std::string &tarStr);
@@ -298,6 +308,14 @@ public:
   //
   bool GetSymbolByRelative(int offset, SymbolInfo_Ty &resSi) const;
   //
+  std::string GetOrigin() const { return Origin; }
+  //
+  std::string GetTrimed() const { return Trimed; }
+  //
+  SymbolInfoColl_Ty &GetInternalColl() { return SymbolInfoColl; }
+  //
+  size_t GetCurrentPos() { return CurrentPos; }
+  //
   std::string ToString() const;
   //
   static size_t BracketCategory(const char *tarStr, size_t tarStrLen,
@@ -354,7 +372,6 @@ public:
   //
   static void ToUpperStringOnSite(char *tar, size_t tarLen);
   static void ToUpperStringOnSite(std::string &tarStr);
-  static void ToUpperStringOnSite(std::string_view &tarStr);
   //
   static std::string ToUpperStringCpy(const char *tarStr, size_t tarStrLen);
   static std::string ToUpperStringCpy(const std::string &tarStr);
@@ -381,5 +398,41 @@ private:
                                    size_t &sufPos);
   //
 };
-
+/*
+ */
+class ExprSyntaxPaser {
+private:
+  static std::stack<ArgPtr_Ty> ArgStk;
+  static std::stack<OperCPtr_Ty> OpStk;
+  static std::vector<std::string> VariableTable;
+  static size_t CurrentArgCounter;
+  //
+public:
+  static void Reset();
+  //
+  static ResultPtr_Ty TrySyntaxPaser(const char *tarStr, size_t tarStrLen);
+  static ResultPtr_Ty TrySyntaxPaser(const std::string &tarStr);
+  static ResultPtr_Ty TrySyntaxPaser(const std::string_view &tarStr);
+  static ResultPtr_Ty TrySyntaxPaser(ExprTeleprompter &et);
+  // 语法匹配代理
+  static bool SymbolSyntaxVarifier(const ExprOper &opRef,
+                                  const SymbolInfoColl_Ty &siColl,
+                                  size_t tarPos);
+  // 语法匹配规则
+  static bool PrefixSingle(const SymbolInfoColl_Ty &siColl, size_t tarPos);
+  static bool PrefixNeedArgs(const SymbolInfoColl_Ty &siColl, size_t tarPos);
+  static bool InfixDoubleArgs(const SymbolInfoColl_Ty &siColl, size_t tarPos);
+  static bool SuffixNone(const SymbolInfoColl_Ty &siColl, size_t tarPos);
+  static bool SuffixSingle(const SymbolInfoColl_Ty &siColl, size_t tarPos);
+  static bool SuffixNeedArgs(const SymbolInfoColl_Ty &siColl, size_t tarPos);
+  static bool LeftBracketSyntax(const SymbolInfoColl_Ty &siColl, size_t tarPos);
+  static bool RightBracketSyntax(const SymbolInfoColl_Ty &siColl,
+                                 size_t tarPos);
+  static bool DelimiterSyntax(const SymbolInfoColl_Ty &siColl, size_t tarPos);
+  //
+private:
+  static void HandleToLBR();
+  //
+  static void HandleTopOper();
+};
 } // namespace Expr
