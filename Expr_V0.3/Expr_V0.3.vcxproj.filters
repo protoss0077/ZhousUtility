@@ -14,4 +14,23 @@
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ExprPreset.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ExprTypes.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="PresetFuncs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ExprTypes.cpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ExprOperManInit.cpp">
+      <Filter>头文件</Filter>
+    </ClCompile>
+  </ItemGroup>
 </Project>
