@@ -35,7 +35,7 @@ int main() {
   try {
     //
     std::cout << "\n Starting Test -= 1 =-\n"
-              << ((Test1() == 0) ? "Successed" : "Failed");
+              << ((Test1() == 0) ? "\nSuccessed" : "\nFailed");
 
   } catch (const std::exception &e) {
     std::cout << "\nAn Error Occured.Error Message:\n" << e.what();

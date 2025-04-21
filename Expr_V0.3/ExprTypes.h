@@ -151,7 +151,7 @@ private:
   std::string MatchSymbol;  // 用于匹配的符号（可能有多个）
   std::string InternalName; // 内部名称（唯一）
   OperCategory Category;    // 符号类型
-  size_t NeededArgsCount;   // 大于2时为多参数
+  size_t NeededArgsCount;   // 大于2时为多参
   //
   OperPriority NormalPriority; // 表达式优先级
   OperPriority StackPriority;  // 栈内优先级
@@ -225,7 +225,8 @@ public:
   //
   ArgPtrColl_Ty &GetArgsColl() { return Args; }
 };
-/*
+/* class ExprOperMan
+ * 符号注册表
  */
 class ExprOperMan {
 private:
@@ -243,12 +244,14 @@ public:
   static size_t SearchSymbol(const std::string &tarStr);
   static size_t SearchSymbol(const std::string_view &tarStr);
   //
-  static bool SymbolOperSyntaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos,
-                                    size_t &resFPos);
+  static bool SymbolOperSyntaxMatch(const SymbolInfoColl_Ty &siColl,
+                                    size_t tarPos, size_t &resFPos);
   //
-  static bool SymbolVarSyntaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos);
+  static bool SymbolVarSyntaxMatch(const SymbolInfoColl_Ty &siColl,
+                                   size_t tarPos);
   //
-  static bool SymbolNumSyntaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos);
+  static bool SymbolNumSyntaxMatch(const SymbolInfoColl_Ty &siColl,
+                                   size_t tarPos);
   //
   static size_t SearchInName(const char *tarStr, size_t tarStrLen);
   static size_t SearchInName(const std::string &tarStr);
@@ -280,7 +283,8 @@ public:
   static OperCPtr_Ty GetDelimiterA();
   //
 };
-/*
+/* class ExprTeleprompter
+ * 提词器
  */
 class ExprTeleprompter {
 private:
@@ -376,6 +380,7 @@ public:
   static std::string ToUpperStringCpy(const char *tarStr, size_t tarStrLen);
   static std::string ToUpperStringCpy(const std::string &tarStr);
   static std::string ToUpperStringCpy(const std::string_view &tarStr);
+  //
   static bool IsValidCString(const char *tarStr, size_t tarStrLen);
 
 private:
@@ -398,7 +403,8 @@ private:
                                    size_t &sufPos);
   //
 };
-/*
+/* class ExprSyntaxPaser
+ * 语法解析器
  */
 class ExprSyntaxPaser {
 private:
@@ -416,8 +422,13 @@ public:
   static ResultPtr_Ty TrySyntaxPaser(ExprTeleprompter &et);
   // 语法匹配代理
   static bool SymbolSyntaxVarifier(const ExprOper &opRef,
-                                  const SymbolInfoColl_Ty &siColl,
-                                  size_t tarPos);
+                                   const SymbolInfoColl_Ty &siColl,
+                                   size_t tarPos);
+
+private:
+  static void HandleToLBR();
+  //
+  static void HandleTopOper();
   // 语法匹配规则
   static bool PrefixSingle(const SymbolInfoColl_Ty &siColl, size_t tarPos);
   static bool PrefixNeedArgs(const SymbolInfoColl_Ty &siColl, size_t tarPos);
@@ -429,10 +440,6 @@ public:
   static bool RightBracketSyntax(const SymbolInfoColl_Ty &siColl,
                                  size_t tarPos);
   static bool DelimiterSyntax(const SymbolInfoColl_Ty &siColl, size_t tarPos);
-  //
-private:
-  static void HandleToLBR();
-  //
-  static void HandleTopOper();
 };
+
 } // namespace Expr

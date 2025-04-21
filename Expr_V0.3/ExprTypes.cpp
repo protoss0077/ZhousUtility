@@ -279,8 +279,8 @@ size_t ExprOperMan::SearchSymbol(const std::string_view &symbol) {
   return InvalidPos;
 }
 //
-bool ExprOperMan::SymbolOperSyntaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos,
-                                        size_t &resFPos) {
+bool ExprOperMan::SymbolOperSyntaxMatch(const SymbolInfoColl_Ty &siColl,
+                                        size_t tarPos, size_t &resFPos) {
   if (tarPos >= siColl.size())
     throw std::runtime_error("查询位置位于符号表之外！");
   const auto &operColl = ExprOperMan::GetColl();
@@ -297,7 +297,7 @@ bool ExprOperMan::SymbolOperSyntaxMatch(SymbolInfoColl_Ty siColl, size_t tarPos,
   return false;
 }
 //
-bool ExprOperMan::SymbolVarSyntaxMatch(SymbolInfoColl_Ty siColl,
+bool ExprOperMan::SymbolVarSyntaxMatch(const SymbolInfoColl_Ty &siColl,
                                        size_t tarPos) {
   if (siColl[tarPos].second != DataType::Variable)
     return false;
@@ -314,7 +314,7 @@ bool ExprOperMan::SymbolVarSyntaxMatch(SymbolInfoColl_Ty siColl,
   return true;
 }
 //
-bool ExprOperMan::SymbolNumSyntaxMatch(SymbolInfoColl_Ty siColl,
+bool ExprOperMan::SymbolNumSyntaxMatch(const SymbolInfoColl_Ty &siColl,
                                        size_t tarPos) {
   if (siColl[tarPos].second != DataType::Value)
     return false;
@@ -1100,7 +1100,7 @@ ResultPtr_Ty ExprSyntaxPaser::TrySyntaxPaser(ExprTeleprompter &et) {
     if (tmpSymbolInfo.second == DataType::Value) {
       //
       if (!ExprOperMan::SymbolNumSyntaxMatch(et.GetInternalColl(),
-                                              et.GetCurrentPos() - 1)) {
+                                             et.GetCurrentPos() - 1)) {
         throw std::runtime_error(
             std::string("A Syntax Error ; Symbol: ") +
             std::string(tmpSymbolInfo.first) +
