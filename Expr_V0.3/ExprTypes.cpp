@@ -1502,5 +1502,62 @@ void ExprSyntaxPaser::HandleTopOper() {
   else
     ArgStk.push(std::static_pointer_cast<ExprDataBase>(eow));
 }
+/************************************
+ * class ExprAbstractSyntaxTree's definition *
+ ************************************
+ */
+ExprAbstractSyntaxTree::ExprAbstractSyntaxTree(const char *tarStr,
+                                               size_t tarStrLen)
+    : ExprAbstractSyntaxTree(std::string(tarStr, tarStrLen)) {}
+//
+ExprAbstractSyntaxTree::ExprAbstractSyntaxTree(const std::string &tarStr)
+    : OriginData(tarStr), ASTRoot(nullptr), VariableColl() {
+  ASTRoot = ExprSyntaxPaser::TrySyntaxPaser(OriginData);
+  //
+  size_t varCount = ExprSyntaxPaser::VariableTable.size();
+  for (size_t cnt = 0; cnt < varCount; ++cnt) {
+    VariableColl.insert(std::make_pair(ExprSyntaxPaser::VariableTable[cnt],
+                                       std::queue<Number_Ty>()));
+  }
+}
+//
+ExprAbstractSyntaxTree::ExprAbstractSyntaxTree(const std::string_view &tarStr)
+    : ExprAbstractSyntaxTree(std::string(tarStr.data(), tarStr.length())) {}
+//
+std::string ExprAbstractSyntaxTree::ToString() const {
+  std::string res{"Trimed Expression :\n" + OriginData.GetTrimed() + "\n"};
+  res.append(ToTreeViewString());
+  res.append("\nTotal [" + std::to_string(VariableColl.size()) +
+             "] Variable Needed.");
+  res.append("\nVariable's Information:");
+  for (const auto &cIter : VariableColl) {
+    res.append("\n[Variable Name] : " + cIter.first);
+    const auto &tmpQue = cIter.second;
+    if (tmpQue.size() == 0)
+      res.append("\nNo value in Variable Table.");
+    else {
+      res.append("\n[s] ");
+      auto vals = tmpQue._Get_container();
+      for (size_t cnt = 0; cnt < 24 && cnt < vals.size(); ++cnt) {
+        if (cnt % 12 == 11)
+          res.append("\n");
+        res.append(std::to_string(vals[cnt]) + ";");
+      }
+      if (vals.size() >= 24)
+        res.append("\n...[e]");
+      res.append("\n[e]");
+    }
+    //
+  }
+  //
+  return res;
+}
+//
 
+
+//
+std::string ExprAbstractSyntaxTree::ToTreeViewString() const {
+
+}
+//
 } // namespace Expr

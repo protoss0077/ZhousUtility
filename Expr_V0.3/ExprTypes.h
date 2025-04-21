@@ -15,9 +15,11 @@ class ExprOper;
 class ExprOperWithArgs;
 class ExprTeleprompter;
 class ExprSyntaxPaser;
+class ExprAbstractSyntaxTree;
 //
 using ArgPtr_Ty = std::shared_ptr<ExprDataBase>;
 using ResultPtr_Ty = ArgPtr_Ty;
+using ResultNumPtr_Ty = std::shared_ptr<ExprNum>;
 using ArgPtrColl_Ty = std::vector<ArgPtr_Ty>;
 using OperCPtr_Ty = const ExprOper *;
 //
@@ -157,8 +159,8 @@ private:
   OperPriority StackPriority;  // 栈内优先级
   //
   ArgValidation_Ty ArgVerifier; // 参数验证，某些函数有特殊规则
-  OperExecution_Ty Executer;
-  OperHelper_Ty Helper;
+  OperExecution_Ty Executer;    // 执行
+  OperHelper_Ty Helper;         // 帮助
 
 public:
   //
@@ -194,7 +196,7 @@ public:
   }
 };
 /* class ExprOperWithArgs
- * 未化简的运算符+参数
+ * 无法简化的运算符+参数
  */
 class ExprOperWithArgs final : public ExprDataBase {
 private:
@@ -440,6 +442,77 @@ private:
   static bool RightBracketSyntax(const SymbolInfoColl_Ty &siColl,
                                  size_t tarPos);
   static bool DelimiterSyntax(const SymbolInfoColl_Ty &siColl, size_t tarPos);
+  //
+  friend class ExprAbstractSyntaxTree;
 };
+/* class ExprAbstractSyntaxTree
+ * 抽象语法树
+ */
+class ExprAbstractSyntaxTree {
+private:
+  ExprTeleprompter OriginData; // 原始信息，由提词器实例保存
+  ResultPtr_Ty ASTRoot;        // 语法树的根
+  VarTable_Ty VariableColl;    // 变量表
+public:
+  // 构造,如果语法解析失败,根为nullptr
+  ExprAbstractSyntaxTree() = delete;
+  ExprAbstractSyntaxTree(const char *, size_t);
+  ExprAbstractSyntaxTree(const std::string &);
+  ExprAbstractSyntaxTree(const std::string_view &);
+  //
+  bool IsValid() { return ASTRoot != nullptr; }
+  //
+  std::string ToString() const;
+  /* TryCalculate
+   * 如果条件满足执行计算，结果存入resNumPtr的Data内
+   * 条件：如果根的类型为值类型，返回根的data
+   * 否则检查变量表，如果变量表不为空依次检查树需要的参数
+   * 是否有值可用，所有变量值确定后执行计算，不改变变量表
+   */
+  bool TryCalculate(ResultNumPtr_Ty &resNumPtr) const;
+  /* VariableSet
+   * 清空变量值队列，将指定值添加进值队列
+   */
+  bool VariableSet(const std::string &varNa, std::vector<Number_Ty> valArr);
+  /* VariableAppend
+   * 将值添加进变量值队列
+   */
+  bool VariableAppend(const std::string &varNa, Number_Ty val);
+  bool VariableAppend(const std::string &varNa, std::vector<Number_Ty> valArr);
+  /* VariableReset
+   * 清空指定变量值队列
+   */
+  bool VariableReset(const std::string &tarVarNa);
+  /* VariableConsume
+   * 如果有，所有变量队列的第1个值弹出
+   */
+  void VariableConsume();
+  /************************************
+   * 辅助函数 *
+   ************************************
+   */
+  /* RangeSampled
+   * 对一个范围采样，生成一系列值,插入目标容器之后
+   * rangSt: 范围起点
+   * rangEd: 范围终点
+   * rate: 采样率
+   * stTag/edTag: 生成的值列是否包含头/尾
+   * 采样限制:
+   *    采样率大于最小限制值
+   *    容器内的值数量小于最大限制
+   */
+  static bool RangeSampled(std::vector<Number_Ty> &numColl, Number_Ty rangSt,
+                           Number_Ty rangEd, Number_Ty rate, bool stTag = true,
+                           bool edTag = true);
 
+private:
+  // 采样率需要大于该值
+  static const Number_Ty SampledRateMin;
+  // 一次采样生成的值列不超过该值
+  static const size_t SampledRateCountLimit;
+
+  std::string ToTreeViewString() const;
+  //
+};
+//
 } // namespace Expr
