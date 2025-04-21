@@ -36,30 +36,31 @@ namespace PresetFunctions {
  * 由节点的Calculate接口保证 *
  ***************************
  */
-ResultPtr_Ty NOOP(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty NOOP(const ArgPtrColl_Ty &argPtrColl, VarTableCPtr_Ty varTable) {
   throw std::runtime_error("执行了无操作的占位符！");
   return std::static_pointer_cast<ExprDataBase>(std::make_shared<ExprNum>(NAN));
 }
 //
-ResultPtr_Ty PINone(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty PINone(const ArgPtrColl_Ty &argPtrColl, VarTableCPtr_Ty varTable) {
   return std::static_pointer_cast<ExprDataBase>(std::make_shared<ExprNum>(
       static_cast<Number_Ty>(3.14159265358979323846)));
 }
 
-ResultPtr_Ty ENone(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty ENone(const ArgPtrColl_Ty &argPtrColl, VarTableCPtr_Ty varTable) {
   return std::static_pointer_cast<ExprDataBase>(std::make_shared<ExprNum>(
       static_cast<Number_Ty>(2.71828182845904523536)));
 }
 //
-ResultPtr_Ty PositiveSingle(ArgPtrColl_Ty &argPtrColl,
-                            VarTablePtr_Ty varTable) {
+ResultPtr_Ty PositiveSingle(const ArgPtrColl_Ty &argPtrColl,
+                            VarTableCPtr_Ty varTable) {
   auto resPtr = argPtrColl[0]->Calculate(varTable);
   if (resPtr->GetType() != DataType::Value)
     throw std::runtime_error(InvalidDataType + nameof(DataType::Value));
   return resPtr;
 }
 //
-ResultPtr_Ty AddDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty AddDouble(const ArgPtrColl_Ty &argPtrColl,
+                       VarTableCPtr_Ty varTable) {
   ResultPtr_Ty lresPtr{argPtrColl[0]->Calculate(varTable)};
   ResultPtr_Ty rresPtr{argPtrColl[1]->Calculate(varTable)};
   //
@@ -71,7 +72,8 @@ ResultPtr_Ty AddDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
   return std::static_pointer_cast<ExprDataBase>(resPtr);
 }
 //
-ResultPtr_Ty AddMultiple(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty AddMultiple(const ArgPtrColl_Ty &argPtrColl,
+                         VarTableCPtr_Ty varTable) {
   Number_Ty resNum{0};
   for (const auto &r : argPtrColl) {
     auto tmp{r->Calculate(varTable)};
@@ -83,8 +85,8 @@ ResultPtr_Ty AddMultiple(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
       std::make_shared<ExprNum>(resNum));
 }
 //
-ResultPtr_Ty NegativeSingle(ArgPtrColl_Ty &argPtrColl,
-                            VarTablePtr_Ty varTable) {
+ResultPtr_Ty NegativeSingle(const ArgPtrColl_Ty &argPtrColl,
+                            VarTableCPtr_Ty varTable) {
   auto argResPtr = argPtrColl[0]->Calculate(varTable);
   if (argResPtr->GetType() != DataType::Value)
     throw std::runtime_error(InvalidDataType + nameof(DataType::Value));
@@ -93,7 +95,8 @@ ResultPtr_Ty NegativeSingle(ArgPtrColl_Ty &argPtrColl,
       std::make_shared<ExprNum>(resNum));
 }
 //
-ResultPtr_Ty SubDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty SubDouble(const ArgPtrColl_Ty &argPtrColl,
+                       VarTableCPtr_Ty varTable) {
   ResultPtr_Ty lresPtr{argPtrColl[0]->Calculate(varTable)};
   ResultPtr_Ty rresPtr{argPtrColl[1]->Calculate(varTable)};
   //
@@ -105,7 +108,8 @@ ResultPtr_Ty SubDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
   return std::static_pointer_cast<ExprDataBase>(resPtr);
 }
 //
-ResultPtr_Ty SubMultiple(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty SubMultiple(const ArgPtrColl_Ty &argPtrColl,
+                         VarTableCPtr_Ty varTable) {
   auto arg1st{argPtrColl[0]->Calculate(varTable)};
   if (arg1st->GetType() != DataType::Value)
     throw std::runtime_error(InvalidDataType + nameof(DataType::Value));
@@ -120,7 +124,8 @@ ResultPtr_Ty SubMultiple(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
       std::make_shared<ExprNum>(resNum));
 }
 //
-ResultPtr_Ty AvgMultiple(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty AvgMultiple(const ArgPtrColl_Ty &argPtrColl,
+                         VarTableCPtr_Ty varTable) {
   Number_Ty resNum{0};
   for (const auto &r : argPtrColl) {
     auto tmp{r->Calculate(varTable)};
@@ -132,7 +137,8 @@ ResultPtr_Ty AvgMultiple(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
       std::make_shared<ExprNum>(resNum / argPtrColl.size()));
 }
 //
-ResultPtr_Ty FactSingle(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty FactSingle(const ArgPtrColl_Ty &argPtrColl,
+                        VarTableCPtr_Ty varTable) {
   static const std::string OutOfFactorialHandlerMsg{
       "Factorial can only handle parts smaller than 100！"};
   //
@@ -153,7 +159,8 @@ ResultPtr_Ty FactSingle(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
       std::make_shared<ExprNum>(negativeTag ? -resNum : resNum));
 }
 //
-ResultPtr_Ty MulDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty MulDouble(const ArgPtrColl_Ty &argPtrColl,
+                       VarTableCPtr_Ty varTable) {
   ResultPtr_Ty lresPtr{argPtrColl[0]->Calculate(varTable)};
   ResultPtr_Ty rresPtr{argPtrColl[1]->Calculate(varTable)};
   //
@@ -165,7 +172,8 @@ ResultPtr_Ty MulDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
   return std::static_pointer_cast<ExprDataBase>(resPtr);
 }
 //
-ResultPtr_Ty DivDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty DivDouble(const ArgPtrColl_Ty &argPtrColl,
+                       VarTableCPtr_Ty varTable) {
   ResultPtr_Ty lresPtr{argPtrColl[0]->Calculate(varTable)};
   ResultPtr_Ty rresPtr{argPtrColl[1]->Calculate(varTable)};
   //
@@ -179,7 +187,8 @@ ResultPtr_Ty DivDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
   return std::static_pointer_cast<ExprDataBase>(resPtr);
 }
 //
-ResultPtr_Ty PowDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
+ResultPtr_Ty PowDouble(const ArgPtrColl_Ty &argPtrColl,
+                       VarTableCPtr_Ty varTable) {
   ResultPtr_Ty lresPtr{argPtrColl[0]->Calculate(varTable)};
   ResultPtr_Ty rresPtr{argPtrColl[1]->Calculate(varTable)};
   //
@@ -194,13 +203,12 @@ ResultPtr_Ty PowDouble(ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTable) {
  * preset arguments verifiers *
  ***************************
  */
-bool NoNeedVerifier(const Expr::ArgPtrColl_Ty &argPtrColl,
-                    Expr::VarTablePtr_Ty varTable) {
+bool NoNeedVerifier(const ArgPtrColl_Ty &argPtrColl, VarTableCPtr_Ty varTable) {
   return argPtrColl.empty();
 }
 //
-bool SingleArgVerifier(const Expr::ArgPtrColl_Ty &argPtrColl,
-                       Expr::VarTablePtr_Ty varTable) {
+bool SingleArgVerifier(const ArgPtrColl_Ty &argPtrColl,
+                       VarTableCPtr_Ty varTable) {
   if (argPtrColl.size() != 1)
     return false;
   ArgPtr_Ty data1 = argPtrColl[0];
@@ -213,8 +221,8 @@ bool SingleArgVerifier(const Expr::ArgPtrColl_Ty &argPtrColl,
   return true;
 }
 //
-bool DoubleArgsVerifier(const Expr::ArgPtrColl_Ty &argPtrColl,
-                        Expr::VarTablePtr_Ty varTable) {
+bool DoubleArgsVerifier(const ArgPtrColl_Ty &argPtrColl,
+                        VarTableCPtr_Ty varTable) {
   if (argPtrColl.size() != 2)
     return false;
   if (argPtrColl[0]->GetType() == Expr::DataType::Variable) {
@@ -232,8 +240,8 @@ bool DoubleArgsVerifier(const Expr::ArgPtrColl_Ty &argPtrColl,
   return true;
 }
 //
-bool MultipleArgsVerifier(const Expr::ArgPtrColl_Ty &argPtrColl,
-                          Expr::VarTablePtr_Ty varTable, size_t nargc) {
+bool MultipleArgsVerifier(const ArgPtrColl_Ty &argPtrColl,
+                          VarTableCPtr_Ty varTable, size_t nargc) {
   if (argPtrColl.empty() || argPtrColl.size() == nargc)
     return false;
   for (size_t cnt = 0; cnt < argPtrColl.size(); ++cnt) {
@@ -248,7 +256,7 @@ bool MultipleArgsVerifier(const Expr::ArgPtrColl_Ty &argPtrColl,
 }
 //
 bool ArgumentsCountVerifier(const ArgPtrColl_Ty &argPtrColl,
-                            VarTablePtr_Ty varTab, size_t nargc) {
+                            VarTableCPtr_Ty varTab, size_t nargc) {
   switch (nargc) {
   case 0:
     return NoNeedVerifier(argPtrColl, varTab);
@@ -262,7 +270,7 @@ bool ArgumentsCountVerifier(const ArgPtrColl_Ty &argPtrColl,
   //
 }
 //
-bool DivIDArgsVerifier(const ArgPtrColl_Ty &argPtrColl, VarTablePtr_Ty varTab,
+bool DivIDArgsVerifier(const ArgPtrColl_Ty &argPtrColl, VarTableCPtr_Ty varTab,
                        size_t nargc) {
   if (argPtrColl.size() != 2)
     return false;

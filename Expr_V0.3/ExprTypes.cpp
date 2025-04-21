@@ -85,7 +85,7 @@ std::string ExprNum::ToString() const {
   return std::string(buf);
 }
 //
-[[nodiscard]] ResultPtr_Ty ExprNum::Calculate(VarTablePtr_Ty varTable) {
+[[nodiscard]] ResultPtr_Ty ExprNum::Calculate(VarTableCPtr_Ty varTable) const {
   assert(GetType() == DataType::Value);
   auto res = std::make_shared<ExprNum>(Data);
   return std::static_pointer_cast<ExprDataBase>(res);
@@ -127,7 +127,7 @@ std::string ExprVar::ToString() const {
   return std::string(buf);
 }
 //
-[[nodiscard]] ResultPtr_Ty ExprVar::Calculate(VarTablePtr_Ty varTable) {
+[[nodiscard]] ResultPtr_Ty ExprVar::Calculate(VarTableCPtr_Ty varTable) const {
   assert(GetType() == DataType::Variable);
   if (varTable == nullptr)
     throw std::runtime_error(NullVarTableMsg + Data);
@@ -138,12 +138,12 @@ std::string ExprVar::ToString() const {
   if (tarQue.empty())
     throw std::runtime_error(NoVarDataMsg + Data);
   auto res = tarQue.front();
-  // tarQue.pop(); // 表达式最终计算时从队列弹出
   auto resPtr = std::make_shared<ExprNum>(ExprNum(res));
   return std::static_pointer_cast<ExprDataBase>(resPtr);
 }
 //
-Number_Ty ExprVar::GetVarValue(ArgPtr_Ty argPtr, VarTablePtr_Ty varTablePtr) {
+Number_Ty ExprVar::GetVarValue(const ArgPtr_Ty argPtr,
+                               VarTableCPtr_Ty varTablePtr) {
   if (argPtr->GetType() != DataType::Variable)
     throw std::runtime_error(InvalidDataType + nameof(DataType::Variable));
   if (varTablePtr == nullptr)
@@ -218,19 +218,19 @@ std::string ExprOperWithArgs::ToString() const {
   return resMsg;
 }
 //
-bool ExprOperWithArgs::IsValid(VarTablePtr_Ty varTable) const {
+bool ExprOperWithArgs::IsValid(VarTableCPtr_Ty varTable) const {
   return OperCPtr->VerifyArgs(Args, varTable);
 }
 //
 [[nodiscard]] ResultPtr_Ty
-ExprOperWithArgs::Calculate(VarTablePtr_Ty varTablePtr) {
+ExprOperWithArgs::Calculate(VarTableCPtr_Ty varTablePtr) const {
   assert(GetType() == DataType::OperWithArgs);
   if (!IsValid(varTablePtr))
     throw std::runtime_error(InvalidOperOrArgMsg);
   return OperCPtr->Execute(Args, varTablePtr);
 }
 //
-bool ExprOperWithArgs::TrySimplify(ResultPtr_Ty &res) {
+bool ExprOperWithArgs::TrySimplify(ResultPtr_Ty &res) const {
   if (GetType() != DataType::OperWithArgs)
     return false;
   // 只有Args都为值类型时才化简
@@ -1252,8 +1252,10 @@ bool ExprSyntaxPaser::PrefixSingle(const SymbolInfoColl_Ty &siColl,
       ExprTeleprompter::BracketCategory(siColl[tarPos + 1].first, true) !=
           InvalidPos) {
     return tarPos < 1 ? true
-                      : ExprTeleprompter::BracketCategory(
-                            siColl[tarPos - 1].first, true) != InvalidPos;
+                      : (ExprTeleprompter::BracketCategory(
+                             siColl[tarPos - 1].first, false) == InvalidPos &&
+                         siColl[tarPos - 1].second != DataType::Value &&
+                         siColl[tarPos - 1].second != DataType::Variable);
   }
   return false;
 }
@@ -1268,7 +1270,11 @@ bool ExprSyntaxPaser::PrefixNeedArgs(const SymbolInfoColl_Ty &siColl,
   // oper之后必须为括号，前一个必须为oper但可以在表达式开头
   if (ExprTeleprompter::BracketCategory(siColl[tarPos + 1].first, true) !=
       InvalidPos)
-    return tarPos < 1 ? true : siColl[tarPos - 1].second == DataType::Oper;
+    return tarPos < 1 ? true
+                      : (ExprTeleprompter::BracketCategory(
+                             siColl[tarPos - 1].first, false) == InvalidPos &&
+                         siColl[tarPos - 1].second != DataType::Value &&
+                         siColl[tarPos - 1].second != DataType::Variable);
   return false;
 }
 //
@@ -1383,6 +1389,9 @@ bool ExprSyntaxPaser::LeftBracketSyntax(const SymbolInfoColl_Ty &siColl,
     return false;
   // 前一个必然是符号 必须显式写出 *
   if (siColl[tarPos - 1].second != DataType::Oper)
+    return false;
+  // 后一个不能为分隔符
+  if (ExprTeleprompter::IsDelimiter(siColl[tarPos + 1].first[0]))
     return false;
   return true;
 }
@@ -1506,6 +1515,12 @@ void ExprSyntaxPaser::HandleTopOper() {
  * class ExprAbstractSyntaxTree's definition *
  ************************************
  */
+/* static members
+ */
+const Number_Ty ExprAbstractSyntaxTree::SampledRateMin = 0.0001;
+// 一次采样生成的值列不超过该值
+const size_t ExprAbstractSyntaxTree::SampledRateCountLimit = 1000;
+//
 ExprAbstractSyntaxTree::ExprAbstractSyntaxTree(const char *tarStr,
                                                size_t tarStrLen)
     : ExprAbstractSyntaxTree(std::string(tarStr, tarStrLen)) {}
@@ -1529,6 +1544,8 @@ std::string ExprAbstractSyntaxTree::ToString() const {
   res.append(ToTreeViewString());
   res.append("\nTotal [" + std::to_string(VariableColl.size()) +
              "] Variable Needed.");
+  if (VariableColl.size() < 1)
+    return res;
   res.append("\nVariable's Information:");
   for (const auto &cIter : VariableColl) {
     res.append("\n[Variable Name] : " + cIter.first);
@@ -1553,11 +1570,185 @@ std::string ExprAbstractSyntaxTree::ToString() const {
   return res;
 }
 //
-
-
+bool ExprAbstractSyntaxTree::TryCalculate(ResultNumPtr_Ty &resNumPtr) const {
+  if (!IsDataReady())
+    return false;
+  auto res = ASTRoot->Calculate(&VariableColl);
+  if (res->GetType() != DataType::Value)
+    return false;
+  resNumPtr = std::static_pointer_cast<ExprNum>(res);
+  return true;
+}
+//
+bool ExprAbstractSyntaxTree::VariableSet(const std::string &varNa,
+                                         std::vector<Number_Ty> valArr) {
+  std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(varNa);
+  auto Iter = VariableColl.find(uvarNa);
+  if (Iter == VariableColl.end())
+    return false;
+  if (valArr.size() > SampledRateCountLimit)
+    return false;
+  auto &que = Iter->second;
+  for (; !que.empty();)
+    que.pop();
+  for (const auto &n : valArr)
+    que.push(n);
+  return true;
+}
+//
+bool ExprAbstractSyntaxTree::VariableAppend(const std::string &varNa,
+                                            Number_Ty val) {
+  std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(varNa);
+  auto Iter = VariableColl.find(uvarNa);
+  if (Iter == VariableColl.end())
+    return false;
+  auto &que = Iter->second;
+  //
+  if (que.size() + 1 > SampledRateCountLimit)
+    return false;
+  que.push(val);
+  return true;
+}
+bool ExprAbstractSyntaxTree::VariableAppend(const std::string &varNa,
+                                            std::vector<Number_Ty> valArr) {
+  std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(varNa);
+  auto Iter = VariableColl.find(uvarNa);
+  if (Iter == VariableColl.end())
+    return false;
+  auto &que = Iter->second;
+  //
+  if (que.size() + valArr.size() > SampledRateCountLimit)
+    return false;
+  for (const auto n : valArr)
+    que.push(n);
+  return true;
+}
+//
+bool ExprAbstractSyntaxTree::VariableReset(const std::string &tarVarNa) {
+  std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(tarVarNa);
+  auto Iter = VariableColl.find(uvarNa);
+  if (Iter == VariableColl.end())
+    return false;
+  auto &que = Iter->second;
+  for (; !que.empty();)
+    que.pop();
+  return true;
+}
+//
+void ExprAbstractSyntaxTree::VariableConsume() {
+  for (auto &p : VariableColl) {
+    if (!p.second.empty())
+      p.second.pop();
+  }
+}
+//
+std::string
+ExprAbstractSyntaxTree::ChkVariable(const std::string &varNa) const {
+  std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(varNa);
+  auto Iter = VariableColl.find(uvarNa);
+  if (Iter == VariableColl.end())
+    return "无此变量，变量名: " + uvarNa;
+  std::string res("变量名: " + uvarNa + " ;变量队列中有: " +
+                  std::to_string(Iter->second.size()) + "个值:\n[s] ");
+  const auto &inQue = Iter->second._Get_container();
+  for (size_t cnt = 0; cnt < 24 && cnt < inQue.size(); ++cnt) {
+    if (cnt % 12 == 11)
+      res.append("\n");
+    res.append(std::to_string(inQue[cnt]) + " ; ");
+  }
+  if (inQue.size() > 24)
+    res.append("\n...[e]");
+  else
+    res.append("\n[e]");
+  return res;
+}
+//
+bool ExprAbstractSyntaxTree::RangeSampled(std::vector<Number_Ty> &numColl,
+                                          Number_Ty rangSt, Number_Ty rangEd,
+                                          Number_Ty rate, bool stTag = true,
+                                          bool edTag = true) {
+  rate = std::abs(rate);
+  if (rate < SampledRateMin || NumEQ(0.0, rate))
+    return false;
+  auto dist = rangEd - rangSt;
+  auto adist = std::abs(dist);
+  size_t genCount = size_t(adist / rate);
+  Number_Ty rem = genCount * rate;
+  genCount = NumEQ(adist, rem) ? genCount + 1 : genCount + 2;
+  if (stTag)
+    genCount--;
+  if (edTag)
+    genCount--;
+  if (numColl.size() + genCount > SampledRateCountLimit)
+    return false;
+  if (NumGE(dist, 0.0)) {
+    Number_Ty stNum = stTag ? rangSt : rangSt + rate;
+    for (size_t cnt = 0; cnt < genCount; ++cnt, stNum += rate)
+      numColl.push_back(stNum);
+  } else {
+    Number_Ty stNum = stTag ? rangSt : rangSt - rate;
+    for (size_t cnt = 0; cnt < genCount; ++cnt, stNum -= rate)
+      numColl.push_back(stNum);
+  }
+  return true;
+}
 //
 std::string ExprAbstractSyntaxTree::ToTreeViewString() const {
-
+  std::string res("");
+  ToTreeViewString(ASTRoot, res, 0);
+  return res;
 }
+//
+void ExprAbstractSyntaxTree::ToTreeViewString(const ArgPtr_Ty d,
+                                              std::string &res, size_t deepth) {
+  std::string tmp("\n");
+  for (size_t cnt = 0; cnt + 1 < deepth; ++cnt)
+    tmp.append("  *");
+  if (deepth > 0)
+    tmp.append("  L");
+  switch (d->GetType()) {
+  case DataType::Value: {
+    const auto &nptr = std::static_pointer_cast<ExprNum>(d);
+    auto num = nptr->GetData();
+    tmp.append("[NUM]" + std::to_string(num));
+    break;
+  }
+  case DataType::Variable: {
+    const auto &vptr = std::static_pointer_cast<ExprVar>(d);
+    tmp.append("[VAR]" + vptr->GetData());
+    break;
+  }
+  case DataType::OperWithArgs: {
+    const auto &owaptr = std::static_pointer_cast<ExprOperWithArgs>(d);
+    const auto &opptr = owaptr->GetOperPtr();
+    const auto &acoll = owaptr->GetArgsColl();
+    tmp.append("[OP]" + opptr->GetInternalName());
+    for (const auto i : acoll) {
+      ToTreeViewString(i, tmp, deepth + 1);
+    }
+    break;
+  }
+  default:
+    throw std::runtime_error("Unknow Syntax Node! Deepth: " +
+                             std::to_string(deepth));
+    break;
+  }
+  //
+  res.append(tmp);
+}
+//
+bool ExprAbstractSyntaxTree::IsDataReady() const {
+  if (ASTRoot == nullptr)
+    return false;
+  if (ASTRoot->GetType() == DataType::Value)
+    return true;
+  for (const auto &i : VariableColl) {
+    const auto &que = i.second;
+    if (que.empty())
+      return false;
+  }
+  return true;
+}
+
 //
 } // namespace Expr

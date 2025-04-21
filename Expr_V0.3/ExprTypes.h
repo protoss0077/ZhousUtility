@@ -24,9 +24,9 @@ using ArgPtrColl_Ty = std::vector<ArgPtr_Ty>;
 using OperCPtr_Ty = const ExprOper *;
 //
 using ArgValidation_Ty =
-    std::function<bool(const ArgPtrColl_Ty &, VarTablePtr_Ty, size_t)>;
+    std::function<bool(const ArgPtrColl_Ty &, VarTableCPtr_Ty, size_t)>;
 using OperExecution_Ty =
-    std::function<ResultPtr_Ty(ArgPtrColl_Ty &, VarTablePtr_Ty)>;
+    std::function<ResultPtr_Ty(const ArgPtrColl_Ty &, VarTableCPtr_Ty)>;
 using OperHelper_Ty = std::function<std::string(bool)>;
 
 /* enum class DataType
@@ -91,7 +91,8 @@ public:
   // 数据类型
   virtual DataType GetType() const = 0;
   // 根据变量表计算值，ExprNum的变量表可以为nullptr
-  virtual [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) = 0;
+  virtual [[nodiscard]] ResultPtr_Ty
+  Calculate(VarTableCPtr_Ty varTable) const = 0;
   //
   virtual std::string ToString() const = 0;
 };
@@ -112,7 +113,7 @@ public:
   //
   std::string ToString() const override;
   //
-  [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) override;
+  [[nodiscard]] ResultPtr_Ty Calculate(VarTableCPtr_Ty varTable) const override;
   //
   DataType GetType() const override { return DataType::Value; }
   //
@@ -137,13 +138,14 @@ public:
   //
   std::string ToString() const override;
   //
-  [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) override;
+  [[nodiscard]] ResultPtr_Ty Calculate(VarTableCPtr_Ty varTable) const override;
   //
   DataType GetType() const override { return DataType::Variable; }
   //
   std::string GetData() const { return std::string(Data); }
   //
-  static Number_Ty GetVarValue(ArgPtr_Ty argPtr, VarTablePtr_Ty varTablePtr);
+  static Number_Ty GetVarValue(const ArgPtr_Ty argPtr,
+                               VarTableCPtr_Ty varTablePtr);
 };
 /* class ExprOper
  *
@@ -187,11 +189,12 @@ public:
   std::string GetBrief() const { return Helper(false); }
   std::string GetDetail() const { return Helper(true); }
   //
-  bool VerifyArgs(const ArgPtrColl_Ty &argColl, VarTablePtr_Ty varTab) const {
+  bool VerifyArgs(const ArgPtrColl_Ty &argColl, VarTableCPtr_Ty varTab) const {
     return ArgVerifier(argColl, varTab, NeededArgsCount);
   }
   //
-  ResultPtr_Ty Execute(ArgPtrColl_Ty &argColl, VarTablePtr_Ty varTab) const {
+  ResultPtr_Ty Execute(const ArgPtrColl_Ty &argColl,
+                       VarTableCPtr_Ty varTab) const {
     return Executer(argColl, varTab);
   }
 };
@@ -211,17 +214,17 @@ public:
   //
   std::string ToString() const override;
   //
-  [[nodiscard]] ResultPtr_Ty Calculate(VarTablePtr_Ty varTable) override;
+  [[nodiscard]] ResultPtr_Ty Calculate(VarTableCPtr_Ty varTable) const override;
   //
   DataType GetType() const override { return DataType::OperWithArgs; }
   //
-  bool IsValid(VarTablePtr_Ty varTable) const;
+  bool IsValid(VarTableCPtr_Ty varTable) const;
   /* TrySimplify
    * 尝试化简
    * 在所有参数均为num时可化简
    * 你需要自行构建一个std::shared_ptr<ExprNum>的指针然后转型为ResultPtr
    */
-  bool TrySimplify(ResultPtr_Ty &resNum);
+  bool TrySimplify(ResultPtr_Ty &resNum) const;
   //
   OperCPtr_Ty GetOperPtr() const { return OperCPtr; }
   //
@@ -463,6 +466,8 @@ public:
   bool IsValid() { return ASTRoot != nullptr; }
   //
   std::string ToString() const;
+  //
+  size_t GetVariableCount() { return VariableColl.size(); }
   /* TryCalculate
    * 如果条件满足执行计算，结果存入resNumPtr的Data内
    * 条件：如果根的类型为值类型，返回根的data
@@ -487,6 +492,9 @@ public:
    * 如果有，所有变量队列的第1个值弹出
    */
   void VariableConsume();
+  /* ChkVariable
+   */
+  std::string ChkVariable(const std::string &varNa) const;
   /************************************
    * 辅助函数 *
    ************************************
@@ -513,6 +521,10 @@ private:
 
   std::string ToTreeViewString() const;
   //
+  static void ToTreeViewString(const ArgPtr_Ty d, std::string &res,
+                               size_t deepth);
+  //
+  bool IsDataReady() const;
 };
 //
 } // namespace Expr

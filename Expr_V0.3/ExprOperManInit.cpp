@@ -20,7 +20,7 @@ void Expr::ExprOperMan::Init() {
                     OperPriority::L2, ArgumentsCountVerifier, AddDouble,
                     AddIDHelper));
   // add 前/后缀
-  Register(ExprOper("add", "add_pm", OperCategory::PrefOrSuff, 3,
+  Register(ExprOper("add", "add_bm", OperCategory::PrefOrSuff, 3,
                     OperPriority::Highest, OperPriority::Highest,
                     ArgumentsCountVerifier, AddMultiple, AddPMHelper));
   // - 负号
@@ -32,11 +32,11 @@ void Expr::ExprOperMan::Init() {
                     OperPriority::L2, ArgumentsCountVerifier, SubDouble,
                     SubIDHelper));
   // sub 前/后缀
-  Register(ExprOper("sub", "sub_pm", OperCategory::PrefOrSuff, 3,
+  Register(ExprOper("sub", "sub_bm", OperCategory::PrefOrSuff, 3,
                     OperPriority::Highest, OperPriority::Highest,
                     ArgumentsCountVerifier, SubMultiple, SubHelper));
   // avg
-  Register(ExprOper("avg", "avg_pm", OperCategory::PrefOrSuff, 3,
+  Register(ExprOper("avg", "avg_bm", OperCategory::PrefOrSuff, 3,
                     OperPriority::Highest, OperPriority::Highest,
                     ArgumentsCountVerifier, AvgMultiple, AvgHelper));
   // ! 阶乘 后缀
@@ -44,7 +44,7 @@ void Expr::ExprOperMan::Init() {
                     OperPriority::Highest, OperPriority::Highest,
                     ArgumentsCountVerifier, FactSingle, FactSSHelper));
   // fact 前/后缀
-  Register(ExprOper("fact", "fact_ps", OperCategory::PrefOrSuff, 1,
+  Register(ExprOper("fact", "fact_bs", OperCategory::PrefOrSuff, 1,
                     OperPriority::Highest, OperPriority::Highest,
                     ArgumentsCountVerifier, FactSingle, FactSSHelper));
   // * 中缀乘法
@@ -60,7 +60,7 @@ void Expr::ExprOperMan::Init() {
                     OperPriority::L4, ArgumentsCountVerifier, PowDouble,
                     PowIDHelper));
   // pow 前/后缀乘方
-  Register(ExprOper("pow", "pow_pd", OperCategory::PrefOrSuff, 2,
+  Register(ExprOper("pow", "pow_bd", OperCategory::PrefOrSuff, 2,
                     OperPriority::Highest, OperPriority::Highest,
                     ArgumentsCountVerifier, PowDouble, PowHelper));
   //

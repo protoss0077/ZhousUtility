@@ -44,6 +44,7 @@ using VarValueQueue_Ty = std::queue<Number_Ty>;
 // 变量表
 using VarTable_Ty = std::unordered_map<std::string, VarValueQueue_Ty>;
 using VarTablePtr_Ty = VarTable_Ty *;
+using VarTableCPtr_Ty = const VarTable_Ty *;
 // 忽略的分隔符，传入的表达式全转换为大写并去掉分隔符
 static const std::string IgnoredDelimiter{" _"};
 // 可用的括号
