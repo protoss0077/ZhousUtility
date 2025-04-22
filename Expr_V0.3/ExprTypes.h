@@ -455,7 +455,7 @@ class ExprAbstractSyntaxTree {
 private:
   ExprTeleprompter OriginData; // 原始信息，由提词器实例保存
   ResultPtr_Ty ASTRoot;        // 语法树的根
-  VarTable_Ty VariableColl;    // 变量表
+  VarTable_Ty VariableTable;    // 变量表
 public:
   // 构造,如果语法解析失败,根为nullptr
   ExprAbstractSyntaxTree() = delete;
@@ -467,7 +467,7 @@ public:
   //
   std::string ToString() const;
   //
-  size_t GetVariableCount() { return VariableColl.size(); }
+  size_t GetVariableCount() { return VariableTable.size(); }
   /* TryCalculate
    * 如果条件满足执行计算，结果存入resNumPtr的Data内
    * 条件：如果根的类型为值类型，返回根的data
@@ -492,9 +492,18 @@ public:
    * 如果有，所有变量队列的第1个值弹出
    */
   void VariableConsume();
-  /* ChkVariable
+  /* GetVariableInfo
    */
-  std::string ChkVariable(const std::string &varNa) const;
+  std::string GetVariableInfo(const std::string &varNa) const;
+  /* GetVariableNameColl
+  * 获取变量名集合
+  */
+  std::vector<std::string> GetVariableNameColl() const;
+  /* GetVariableColl
+  * 获取内部变量表（只读）
+  * 通过其他接口设置参数
+  */
+  const VarTable_Ty &GetVariableColl() const {return VariableTable;}
   /************************************
    * 辅助函数 *
    ************************************

@@ -15,41 +15,43 @@ int Test1() {
     ExprAbstractSyntaxTree EAST(s);
     std::cout << EAST.ToString();
     if (EAST.GetVariableCount() > 1) {
-      EAST.VariableSet("a", {1, 2, 3});
-      EAST.VariableSet("b", {2, 4, 6});
-      EAST.VariableSet("c", {3, 6, 9});
-      std::cout << "\nCheck Variable [A]:\n" << EAST.ChkVariable("a");
-      std::cout << "\nCheck Variable [B]:\n" << EAST.ChkVariable("b");
-      std::cout << "\nCheck Variable [C]:\n" << EAST.ChkVariable("c");
-      std::cout << "\nCheck Variable [D]:\n" << EAST.ChkVariable("d");
-      ResultNumPtr_Ty tmpRes = std::make_shared<ExprNum>();
-      if (EAST.TryCalculate(tmpRes))
-        std::cout << "\nCalled TryCalculate Successed,Result:"
-                  << tmpRes->ToString();
-      else
-        std::cout << "\nCalled TryCalculate Failed!";
-      EAST.VariableConsume();
+      auto varNaColl = EAST.GetVariableNameColl();
+      for (const auto &vn : varNaColl) {
+        std::vector<Number_Ty> tmpValColl;
+        if (ExprAbstractSyntaxTree::RangeSampled(tmpValColl, 1, 3, .5)) {
+          std::cout << "\n采样范围 [1 ~ 3] ; 采样率:.5\n生成:[s]";
+          for (size_t cnt = 0; cnt < tmpValColl.size() && cnt < 30; ++cnt) {
+            if (cnt % 12 == 11)
+              std::cout << "\n";
+            std::cout << tmpValColl[cnt] << " ; ";
+          }
+        } else {
+          std::cout << "\n采样失败！";
+          break;
+        }
+        //
+        std::cout << "\n[e]\n设置参数：" << vn;
+        EAST.VariableSet(vn, tmpValColl);
+        std::cout<<EAST.GetVariableInfo(vn);
+      }
       //
-      std::cout << "\nCheck Variable [A]:\n" << EAST.ChkVariable("a");
-      std::cout << "\nCheck Variable [B]:\n" << EAST.ChkVariable("b");
-      std::cout << "\nCheck Variable [C]:\n" << EAST.ChkVariable("c");
-      std::cout << "\nCheck Variable [D]:\n" << EAST.ChkVariable("d");
-      if (EAST.TryCalculate(tmpRes))
-        std::cout << "\nCalled TryCalculate Successed,Result:"
-                  << tmpRes->ToString();
-      else
-        std::cout << "\nCalled TryCalculate Failed!";
-      EAST.VariableConsume();
+      std::vector<ResultNumPtr_Ty> tmpResNumColl;
+      for (;;) {
+        ResultNumPtr_Ty tmpResNum = std::make_shared<ExprNum>();
+        if (!EAST.TryCalculate(tmpResNum))
+          break;
+        tmpResNumColl.emplace_back(tmpResNum);
+        EAST.VariableConsume();
+        std::cout << "\nTryCalculate Successed.检查当前变量设置:";
+        for (const auto &vn : varNaColl)
+          std::cout << EAST.GetVariableInfo(vn);
+      }
       //
-      std::cout << "\nCheck Variable [A]:\n" << EAST.ChkVariable("a");
-      std::cout << "\nCheck Variable [B]:\n" << EAST.ChkVariable("b");
-      std::cout << "\nCheck Variable [C]:\n" << EAST.ChkVariable("c");
-      std::cout << "\nCheck Variable [D]:\n" << EAST.ChkVariable("d");
-      if (EAST.TryCalculate(tmpRes))
-        std::cout << "\nCalled TryCalculate Successed,Result:"
-                  << tmpRes->ToString();
-      else
-        std::cout << "\nCalled TryCalculate Failed!";
+      std::cout << "\n检查结果[s]\n";
+      for (const auto &np : tmpResNumColl)
+        std::cout << np->GetData() << " ; ";
+      std::cout << "\n[e]";
+      //
       std::cout << "\n--- next subtest ---\n";
     }
   }

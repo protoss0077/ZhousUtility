@@ -174,10 +174,10 @@ ExprOper::ExprOper(const std::string &msymbol, const std::string &iname,
     throw std::runtime_error(InvalidOperMaNameMsg + msymbol);
   if (!ExprTeleprompter::IsValidInName(iname))
     throw std::runtime_error(InvalidOperInNameMsg + iname);
-  if (nargc > ArgCountLimit)
+  /*if (nargc > ArgCountLimit)
     throw std::runtime_error(
         "创建的运算符可接受参数数量超过限制.MatchSymbol: " + msymbol +
-        "; internal name: " + iname);
+        "; internal name: " + iname);*/
   MatchSymbol = ExprTeleprompter::ToUpperStringCpy(msymbol);
   InternalName = ExprTeleprompter::ToUpperStringCpy(iname);
 }
@@ -1526,13 +1526,13 @@ ExprAbstractSyntaxTree::ExprAbstractSyntaxTree(const char *tarStr,
     : ExprAbstractSyntaxTree(std::string(tarStr, tarStrLen)) {}
 //
 ExprAbstractSyntaxTree::ExprAbstractSyntaxTree(const std::string &tarStr)
-    : OriginData(tarStr), ASTRoot(nullptr), VariableColl() {
+    : OriginData(tarStr), ASTRoot(nullptr), VariableTable() {
   ASTRoot = ExprSyntaxPaser::TrySyntaxPaser(OriginData);
   //
   size_t varCount = ExprSyntaxPaser::VariableTable.size();
   for (size_t cnt = 0; cnt < varCount; ++cnt) {
-    VariableColl.insert(std::make_pair(ExprSyntaxPaser::VariableTable[cnt],
-                                       std::queue<Number_Ty>()));
+    VariableTable.insert(std::make_pair(ExprSyntaxPaser::VariableTable[cnt],
+                                        std::queue<Number_Ty>()));
   }
 }
 //
@@ -1542,12 +1542,12 @@ ExprAbstractSyntaxTree::ExprAbstractSyntaxTree(const std::string_view &tarStr)
 std::string ExprAbstractSyntaxTree::ToString() const {
   std::string res{"Trimed Expression :\n" + OriginData.GetTrimed() + "\n"};
   res.append(ToTreeViewString());
-  res.append("\nTotal [" + std::to_string(VariableColl.size()) +
+  res.append("\nTotal [" + std::to_string(VariableTable.size()) +
              "] Variable Needed.");
-  if (VariableColl.size() < 1)
+  if (VariableTable.size() < 1)
     return res;
   res.append("\nVariable's Information:");
-  for (const auto &cIter : VariableColl) {
+  for (const auto &cIter : VariableTable) {
     res.append("\n[Variable Name] : " + cIter.first);
     const auto &tmpQue = cIter.second;
     if (tmpQue.size() == 0)
@@ -1573,7 +1573,7 @@ std::string ExprAbstractSyntaxTree::ToString() const {
 bool ExprAbstractSyntaxTree::TryCalculate(ResultNumPtr_Ty &resNumPtr) const {
   if (!IsDataReady())
     return false;
-  auto res = ASTRoot->Calculate(&VariableColl);
+  auto res = ASTRoot->Calculate(&VariableTable);
   if (res->GetType() != DataType::Value)
     return false;
   resNumPtr = std::static_pointer_cast<ExprNum>(res);
@@ -1583,8 +1583,8 @@ bool ExprAbstractSyntaxTree::TryCalculate(ResultNumPtr_Ty &resNumPtr) const {
 bool ExprAbstractSyntaxTree::VariableSet(const std::string &varNa,
                                          std::vector<Number_Ty> valArr) {
   std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(varNa);
-  auto Iter = VariableColl.find(uvarNa);
-  if (Iter == VariableColl.end())
+  auto Iter = VariableTable.find(uvarNa);
+  if (Iter == VariableTable.end())
     return false;
   if (valArr.size() > SampledRateCountLimit)
     return false;
@@ -1599,8 +1599,8 @@ bool ExprAbstractSyntaxTree::VariableSet(const std::string &varNa,
 bool ExprAbstractSyntaxTree::VariableAppend(const std::string &varNa,
                                             Number_Ty val) {
   std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(varNa);
-  auto Iter = VariableColl.find(uvarNa);
-  if (Iter == VariableColl.end())
+  auto Iter = VariableTable.find(uvarNa);
+  if (Iter == VariableTable.end())
     return false;
   auto &que = Iter->second;
   //
@@ -1612,8 +1612,8 @@ bool ExprAbstractSyntaxTree::VariableAppend(const std::string &varNa,
 bool ExprAbstractSyntaxTree::VariableAppend(const std::string &varNa,
                                             std::vector<Number_Ty> valArr) {
   std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(varNa);
-  auto Iter = VariableColl.find(uvarNa);
-  if (Iter == VariableColl.end())
+  auto Iter = VariableTable.find(uvarNa);
+  if (Iter == VariableTable.end())
     return false;
   auto &que = Iter->second;
   //
@@ -1626,8 +1626,8 @@ bool ExprAbstractSyntaxTree::VariableAppend(const std::string &varNa,
 //
 bool ExprAbstractSyntaxTree::VariableReset(const std::string &tarVarNa) {
   std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(tarVarNa);
-  auto Iter = VariableColl.find(uvarNa);
-  if (Iter == VariableColl.end())
+  auto Iter = VariableTable.find(uvarNa);
+  if (Iter == VariableTable.end())
     return false;
   auto &que = Iter->second;
   for (; !que.empty();)
@@ -1636,17 +1636,17 @@ bool ExprAbstractSyntaxTree::VariableReset(const std::string &tarVarNa) {
 }
 //
 void ExprAbstractSyntaxTree::VariableConsume() {
-  for (auto &p : VariableColl) {
+  for (auto &p : VariableTable) {
     if (!p.second.empty())
       p.second.pop();
   }
 }
 //
 std::string
-ExprAbstractSyntaxTree::ChkVariable(const std::string &varNa) const {
+ExprAbstractSyntaxTree::GetVariableInfo(const std::string &varNa) const {
   std::string uvarNa = ExprTeleprompter::ToUpperStringCpy(varNa);
-  auto Iter = VariableColl.find(uvarNa);
-  if (Iter == VariableColl.end())
+  auto Iter = VariableTable.find(uvarNa);
+  if (Iter == VariableTable.end())
     return "无此变量，变量名: " + uvarNa;
   std::string res("变量名: " + uvarNa + " ;变量队列中有: " +
                   std::to_string(Iter->second.size()) + "个值:\n[s] ");
@@ -1663,10 +1663,20 @@ ExprAbstractSyntaxTree::ChkVariable(const std::string &varNa) const {
   return res;
 }
 //
+std::vector<std::string> ExprAbstractSyntaxTree::GetVariableNameColl() const {
+  if (VariableTable.empty())
+    return std::vector<std::string>();
+  std::vector<std::string> res;
+  for (const auto &p : VariableTable)
+    res.emplace_back(p.first);
+  return res;
+}
+
+//
 bool ExprAbstractSyntaxTree::RangeSampled(std::vector<Number_Ty> &numColl,
                                           Number_Ty rangSt, Number_Ty rangEd,
-                                          Number_Ty rate, bool stTag = true,
-                                          bool edTag = true) {
+                                          Number_Ty rate, bool stTag,
+                                          bool edTag) {
   rate = std::abs(rate);
   if (rate < SampledRateMin || NumEQ(0.0, rate))
     return false;
@@ -1675,9 +1685,9 @@ bool ExprAbstractSyntaxTree::RangeSampled(std::vector<Number_Ty> &numColl,
   size_t genCount = size_t(adist / rate);
   Number_Ty rem = genCount * rate;
   genCount = NumEQ(adist, rem) ? genCount + 1 : genCount + 2;
-  if (stTag)
+  if (!stTag)
     genCount--;
-  if (edTag)
+  if (!edTag)
     genCount--;
   if (numColl.size() + genCount > SampledRateCountLimit)
     return false;
@@ -1742,7 +1752,7 @@ bool ExprAbstractSyntaxTree::IsDataReady() const {
     return false;
   if (ASTRoot->GetType() == DataType::Value)
     return true;
-  for (const auto &i : VariableColl) {
+  for (const auto &i : VariableTable) {
     const auto &que = i.second;
     if (que.empty())
       return false;
