@@ -95,6 +95,9 @@ public:
     CondVar.notify_all();
     return std::make_shared<std::future<Result_Ty>>(std::move(resFu));
   }
+
+  private:
+  unsigned int ConfirmThreadCount(unsigned int expectCount);
 }; // class ZhousThreadPool
 /*
  */
