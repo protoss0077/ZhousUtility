@@ -8,11 +8,14 @@
 #include <future>
 #include <mutex>
 //
+#include<assert.h>
+//
 namespace CustomerDefined {
 // 前向声明
-// std::shared_ptr<std::thread>的包装器
-// 重写了析构
-struct ThreadSPtrWapper;
+// thread的包装器
+// 析构会调用join
+struct ThreadWapper;
+using ThreadWapperSPtr_Ty=std::shared_ptr<ThreadWapper>;
 // 队列内工作项
 using TaskItem_Ty = std::function<void(void)>;
 /* class ZhousThreadPool
@@ -25,7 +28,7 @@ public:
   static const unsigned int MinThreadCountLimit;
 
 private:
-  std::vector<ThreadSPtrWapper> ThreadSPtrColl;
+  std::vector<ThreadWapperSPtr_Ty> ThreadSPtrColl;
   std::queue<TaskItem_Ty> TaskItemQueue;
   //
   std::mutex InternalMutex;
@@ -97,19 +100,23 @@ public:
   }
 
   private:
-  unsigned int ConfirmThreadCount(unsigned int expectCount);
+  /**/
+  static unsigned int ConfirmThreadCount(unsigned int expectCount);
+  //
+  void DefThreadFunc();
 }; // class ZhousThreadPool
 /*
  */
-struct ThreadSPtrWapper {
-  ThreadSPtrWapper() = default;
-  ThreadSPtrWapper(const ThreadSPtrWapper &) = delete;
-  ~ThreadSPtrWapper();
-  ThreadSPtrWapper &operator=(const ThreadSPtrWapper &) = delete;
+struct ThreadWapper {
+  ThreadWapper() = delete;
+  ThreadWapper(const ThreadWapper &) = delete;
+  ThreadWapper(std::function<void(void)>&&);
+  ~ThreadWapper();
+  ThreadWapper &operator=(const ThreadWapper &) = delete;
 
 private:
-  std::shared_ptr<std::thread> ThreadSPtr{nullptr};
+  std::thread InternalThread;
 
-}; // struct ThreadSPtrWapper
+}; // struct ThreadWapper
 
 } // namespace CustomerDefined
