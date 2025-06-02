@@ -11,11 +11,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ZhousThreadPool.h">
+    <ClCompile Include="TestDemos.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="ZhousThreadPool.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ZhousThreadPool.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

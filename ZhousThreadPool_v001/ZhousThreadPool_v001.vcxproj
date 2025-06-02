@@ -123,8 +123,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="TestDemos.cpp" />
     <ClCompile Include="ZhousThreadPool.cpp" />
-    <ClCompile Include="ZhousThreadPool.h" />
+    <ClInclude Include="ZhousThreadPool.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
