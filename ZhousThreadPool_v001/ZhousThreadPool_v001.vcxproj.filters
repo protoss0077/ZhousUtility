@@ -9,18 +9,30 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="源文件\ZhousThreadPool">
+      <UniqueIdentifier>{ac6476e6-e85c-41ec-8573-085d29b00044}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\SlimSerialExecutor">
+      <UniqueIdentifier>{3005a1e7-7ef8-4b5b-a56f-bd8842ecb8b4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="TestDemos.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="ZhousThreadPool.cpp">
-      <Filter>源文件</Filter>
+      <Filter>源文件\ZhousThreadPool</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ZhousThreadPool.h">
+    <ClInclude Include="ThreadWapper.h">
       <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ZhousThreadPool.h">
+      <Filter>源文件\ZhousThreadPool</Filter>
+    </ClInclude>
+    <ClInclude Include="SlimSerialExecutor.h">
+      <Filter>源文件\SlimSerialExecutor</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

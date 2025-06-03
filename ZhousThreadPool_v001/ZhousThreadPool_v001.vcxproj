@@ -125,6 +125,8 @@
   <ItemGroup>
     <ClCompile Include="TestDemos.cpp" />
     <ClCompile Include="ZhousThreadPool.cpp" />
+    <ClInclude Include="SlimSerialExecutor.h" />
+    <ClInclude Include="ThreadWapper.h" />
     <ClInclude Include="ZhousThreadPool.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

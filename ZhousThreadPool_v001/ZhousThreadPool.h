@@ -1,28 +1,26 @@
 #pragma once
 //
-#include <string>
+#include "ThreadWapper.h"
 //
-#include <functional>
+#include <string>
 //
 #include <queue>
 #include <vector>
 //
 #include <future>
 #include <mutex>
+//
 
 //
 namespace CustomerDefined {
-// 前向声明
-// thread的包装器
-// 析构会调用join
-struct ThreadWapper;
-using ThreadWapperSPtr_Ty = std::shared_ptr<ThreadWapper>;
-// 队列内工作项
-using TaskItem_Ty = std::function<void(void)>;
 /* class ZhousThreadPool
  */
 class ZhousThreadPool {
 public:
+  using ThreadWapperSPtr_Ty = std::shared_ptr<ThreadWapper>;
+  // 队列内工作项
+  using TaskItem_Ty = std::function<void(void)>;
+  //
   // 最大线程数限制
   static const unsigned int MaxThreadCountLimit;
   // 最小线程数限制
@@ -69,7 +67,7 @@ public:
     std::string ToTableString() const;
     //
     std::string ToDefString() const;
-  };
+  }; // struct PoolSnapshot
 
 private:
   // 也许可以通过一个定容数组来代替？
@@ -132,7 +130,7 @@ public:
       std::lock_guard<std::mutex> lk(InternalMutex);
       TaskItemQueue.emplace([titem]() { titem(); });
     }
-    CondVar.notify_all();
+    CondVar.notify_one();
   }
   /* AddTaskItem
    * 添加工作项
@@ -163,7 +161,7 @@ public:
       std::lock_guard<std::mutex> lk(InternalMutex);
       TaskItemQueue.emplace([taskItemSPtr]() { (*taskItemSPtr)(); });
     }
-    CondVar.notify_all();
+    CondVar.notify_one();
     return resFu;
   }
 
@@ -184,30 +182,5 @@ private:
   void Thread0Func();
 
 }; // class ZhousThreadPool
-/*
- */
-struct ThreadWapper {
-  ThreadWapper() = delete;
-  ThreadWapper(const ThreadWapper &) = delete;
-  // ThreadWapper(ThreadWapper&&)=default;
-  //
-  explicit ThreadWapper(std::function<void(void)> tfunc)
-      : InternalThread{std::move(tfunc)} {}
-  //
-  ~ThreadWapper() { Join(); }
-  ThreadWapper &operator=(const ThreadWapper &) = delete;
-  //
-  bool Joinable() { return InternalThread.joinable(); }
-  //
-  void Join() {
-    if (InternalThread.joinable())
-      InternalThread.join();
-  }
-  //
-  std::thread::id GetId() { return InternalThread.get_id(); }
-
-private:
-  std::thread InternalThread;
-}; // struct ThreadWapper
 
 } // namespace CustomerDefined
