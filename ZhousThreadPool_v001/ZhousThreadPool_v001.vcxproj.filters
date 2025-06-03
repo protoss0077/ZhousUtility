@@ -23,6 +23,9 @@
     <ClCompile Include="ZhousThreadPool.cpp">
       <Filter>源文件\ZhousThreadPool</Filter>
     </ClCompile>
+    <ClCompile Include="SlimSerialExecutor.cpp">
+      <Filter>源文件\SlimSerialExecutor</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ThreadWapper.h">

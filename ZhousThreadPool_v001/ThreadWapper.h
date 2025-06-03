@@ -2,6 +2,7 @@
 #include <functional>
 #include <thread>
 
+namespace CustomerDefined {
 /* struct ThreadWapper
  * Thread包装器
  * 以头文件的形式提供
@@ -29,3 +30,4 @@ struct ThreadWapper {
 private:
   std::thread InternalThread;
 }; // struct ThreadWapper
+} // namespace CustomerDefined
