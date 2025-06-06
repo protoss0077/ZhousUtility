@@ -22,7 +22,8 @@ public:
   using TimePoint_Ty = std::chrono::time_point<Clock_Ty>;
   using TaskItem_Ty = std::function<void()>;
   //
-  static constexpr const unsigned int InfiniteRepeated{-1};
+  static constexpr const uint64_t InfiniteRepeated{-1};
+  static constexpr const uint64_t InvalidRepeatedTaskId{-1};
 
 private:
   /*struct PriorityTaskItem
@@ -43,6 +44,10 @@ private:
     //
     PriorityTaskItem(const PriorityTaskItem &) = default;
     //
+    PriorityTaskItem(const TimePoint_Ty stp, OriginTaskItem_Ty &&otitem,
+                     const RepeatedTaskId_Ty rtId = InvalidRepeatedTaskId)
+        : StartTp{stp}, TaskItem{std::move(otitem)}, RepeatedId{rtId} {}
+    //
     ~PriorityTaskItem() {}
     //
     PriorityTaskItem &operator=(const PriorityTaskItem &) = default;
@@ -57,18 +62,22 @@ private:
    */
   class PriorityTimer {
   private:
-    std::priority_queue<PriorityTaskItem> TaskItemPQueue;
     //
+    std::priority_queue<PriorityTaskItem> TaskItemPQueue;
+    // 存储重复任务标记,添加重复任务的方式：
+    // 在队列中添加一个工作项，该工作项的内容是添加一个执行repnum-1的任务
     std::unordered_set<RepeatedTaskId_Ty> RepeatedTaskIdUSet;
     //
     std::unique_ptr<ThreadWapper> InternalThreadUPtr;
     //
     std::mutex InternalMutex;
     std::condition_variable CondVar;
-    //
+    // true-running;false-stopped
     std::atomic<bool> RunningTag;
-    //
-    std::atomic<RepeatedTaskId_Ty> NextRepeatedTaskId;
+    // true-Paused;false-running;
+    std::atomic<bool> PausedTag;
+    // 重复任务标记计数
+    std::atomic<RepeatedTaskId_Ty> RepeatedTaskId;
 
   public:
     PriorityTimer();
@@ -78,30 +87,30 @@ private:
     ~PriorityTimer();
     //
     PriorityTimer &operator=(const PriorityTimer &) = delete;
-    /* Run
+    /* Start
      * 如果RunningTag为true，则无操作
      * 如果RunningTag为false，设置RunningTag
      * 会清理内部容器
      */
     void Start();
     /* ReStart;
-     * 如果RunningTag为true，则无操作
-     * 如果RunningTag为false，设置RunningTag
-     * 不 会清理内部容器
+     * RunningTag-true,PausedTag-true
+     * 设置PausedTag为false，唤醒休眠的线程
+     * 其余情况均无操作
+     * 此接口 不 会清理内部容器
      * 如果暂停期间堆积的任务过多需要自行判断是否清理队列
      */
     void ReStart();
     /* Pause
      * 挂起线程 一段时间
-     * 不 会清理内部容器
-     * 如果暂停期间堆积的任务过多需要自行判断是否清理队列
+     * 指定时间其实是添加一项实时任务
      */
     void Pause();
-    void Pause(const std::chrono::microseconds&timeoffMicroSec);
+    void Pause(const std::chrono::microseconds &timeoffMicroSec);
     /* Stop
-    * 设置RunningTag为false
-    * 清空内部容器
-    */
+     * 设置RunningTag为false
+     * 清空内部容器
+     */
     void Stop();
     /* AddRealTimeTask
      * 添加一个立即（最高优先级）执行的任务进队列
@@ -110,14 +119,15 @@ private:
     /* AddNormalTask
      * 添加常规任务
      * 如果不指定周期和重复次数默认重复1次
+     * 不进RepeatedTaskIdUSet
      * InfiniteRepeated重复直到取消为止
      */
-    RepeatedTaskId_Ty AddNormalTask(
+    void AddNormalTask(TaskItem_Ty titem,
+                       const std::chrono::microseconds &delayedMicroSec);
+    [[nodiscard]] uint64_t AddNormalTask(
         TaskItem_Ty titem, const std::chrono::microseconds &delayedMicroSec,
-        const std::chrono::microseconds &periodMicroSec, unsigned int repCount);
-    RepeatedTaskId_Ty
-    AddNormalTask(TaskItem_Ty titem,
-                  const std::chrono::microseconds &delayedMicroSec);
+        const std::chrono::microseconds &periodMicroSec, uint64_t repCount);
+
     /* TryCancelRepeatedTask
      * 尝试删除一个任务
      * 已开始的任务无法取消
@@ -129,9 +139,20 @@ private:
     void DeleteAllTasts();
 
   private:
-    void Run_();
-    //
     void DefThreadFunc();
+    //
+    void StayAWhile(const std::chrono::microseconds &timeoffMicroSec);
+    //
+    RepeatedTaskId_Ty GetNextRepeatedTaskId();
+    //
+    void InternalAddNormalTask(TaskItem_Ty &&titem, RepeatedTaskId_Ty rtid,
+                               const std::chrono::microseconds &delayedMicroSec,
+                               const std::chrono::microseconds &periodMicroSec,
+                               uint64_t repCount);
+    // 此接口用于在添加重复工作项的转发任务到期时
+    void TaskExecuteAndAddNext(TaskItem_Ty &&titem, RepeatedTaskId_Ty rtid,
+                               const std::chrono::microseconds &periodMicroSec,
+                               uint64_t repCount);
 
   }; // class PriorityTimer
 
