@@ -39,22 +39,7 @@ public:
     //
     void operator()() { TaskItem(); }
   }; // struct PriorityTaskItem
-  /* enum class State
-   * 标记Timer内部状态
-   */
-  enum class RunnerState { Stopped, Running, Paused }; // enum class State
-  std::string GetRunnerStateString(const RunnerState &tar) {
-    switch (tar) {
-    case RunnerState::Running:
-      return "RunnerState::Running";
-    case RunnerState::Stopped:
-      return "RunnerState::Stopped";
-    case RunnerState::Paused:
-      return "RunnerState::Paused";
-    default:
-      return "Unknow State";
-    } // switch
-  }
+
   // 内部成员
   // 任务队列
   std::priority_queue<PriorityTaskItem> TaskItemPQueue;
@@ -65,14 +50,13 @@ public:
   // 锁
   std::mutex InternalMutex;
   std::condition_variable CondVar;
-  //
-  std::atomic<RunnerState> State;
-  //
+  std::atomic<State_Ty> State;
+  // 重复任务编号
   std::atomic<RepeatedTaskId_Ty> ValidRepeatedTaskId;
   //
   PriorityTimerImpl()
       : TaskItemPQueue{}, RepeatedIdUSet{}, TaskRunnerUPtr{nullptr},
-        InternalMutex{}, CondVar{}, State{RunnerState::Stopped},
+        InternalMutex{}, CondVar{}, State{State_Ty::Stopped},
         ValidRepeatedTaskId{0} {}
   //
   PriorityTimerImpl(const PriorityTimerImpl &) = delete;
@@ -104,7 +88,11 @@ public:
   //
   void DeleteAllTask();
   // Utility
-  RepeatedTaskId_Ty GetRepeatedId() { return ValidRepeatedTaskId++; }
+  RepeatedTaskId_Ty GetRepeatedId() {
+    if (ValidRepeatedTaskId == InvalidRepeatedTaskId)
+      throw std::runtime_error("生成了无效的任务ID");
+    return ValidRepeatedTaskId++;
+  }
   // 线程函数
   void ThreadFunc();
   //
@@ -118,9 +106,9 @@ public:
 //
 void SlimSerialExecutor::PriorityTimerImpl::Start() {
   std::lock_guard<std::mutex> lk(InternalMutex);
-  if (State.load() != RunnerState::Stopped)
+  if (State.load() != State_Ty::Stopped)
     return;
-  State.store(RunnerState::Running);
+  State.store(State_Ty::Running);
   for (; !TaskItemPQueue.empty();)
     TaskItemPQueue.pop();
   RepeatedIdUSet.clear();
@@ -132,49 +120,54 @@ void SlimSerialExecutor::PriorityTimerImpl::Start() {
 void SlimSerialExecutor::PriorityTimerImpl::Stop() {
   {
     std::lock_guard<std::mutex> lk(InternalMutex);
-    if (State.load() == RunnerState::Stopped)
+    if (State.load() == State_Ty::Stopped)
       return;
     for (; !TaskItemPQueue.empty();)
       TaskItemPQueue.pop();
     RepeatedIdUSet.clear();
     ValidRepeatedTaskId.store(0);
-    State.store(RunnerState::Stopped);
-    CondVar.notify_one();
-  }
+    State.store(State_Ty::Stopped);
+  } // lk
+  CondVar.notify_one();
   TaskRunnerUPtr.reset();
 }
 //
 void SlimSerialExecutor::PriorityTimerImpl::Pause() {
   std::lock_guard<std::mutex> lk(InternalMutex);
-  if (State.load() != RunnerState::Running)
+  if (State.load() != State_Ty::Running)
     return;
-  State.store(RunnerState::Paused);
+  State.store(State_Ty::Paused);
 }
 //
 void SlimSerialExecutor::PriorityTimerImpl::Pause(Duration_Ty timeOffMicroSec) {
   AddRealTimeTask([this, timeOffMicroSec]() {
     {
       std::lock_guard<std::mutex> lk(this->InternalMutex);
-      if (State.load() != RunnerState::Running)
+      if (State.load() != State_Ty::Running)
         return;
-      State.store(RunnerState::Paused);
-    }
+      State.store(State_Ty::Paused);
+    } // lk
     std::this_thread::sleep_for(timeOffMicroSec);
     {
       std::lock_guard<std::mutex> lk(this->InternalMutex);
-      if (State.load() != RunnerState::Paused)
+      if (State.load() != State_Ty::Paused)
         return;
-      State.store(RunnerState::Paused);
-    }
+      State.store(State_Ty::Running);
+    } // lk
   });
 }
 //
 void SlimSerialExecutor::PriorityTimerImpl::Resume() {
-  std::lock_guard<std::mutex> lk(InternalMutex);
-  if (State.load() != RunnerState::Paused)
-    return;
-  State.store(RunnerState::Running);
-  CondVar.notify_one();
+  bool notifyTag = true;
+  {
+    std::lock_guard<std::mutex> lk(InternalMutex);
+    if (State.load() != State_Ty::Paused)
+      return;
+    notifyTag = !TaskItemPQueue.empty();
+    State.store(State_Ty::Running);
+  } // lk
+  if (notifyTag)
+    CondVar.notify_one();
 }
 //
 void SlimSerialExecutor::PriorityTimerImpl::AddRealTimeTask(
@@ -188,11 +181,15 @@ void SlimSerialExecutor::PriorityTimerImpl::AddNormalTask(
   bool notifyTag = true;
   {
     std::lock_guard<std::mutex> lk(InternalMutex);
+    if (State.load() == State_Ty::Stopped)
+      return;
     notifyTag =
-        TaskItemPQueue.empty() ? true : startTp <= TaskItemPQueue.top().StartTp;
+        (TaskItemPQueue.empty() ? true
+                                : startTp <= TaskItemPQueue.top().StartTp) &&
+        (State.load() == State_Ty::Running);
     TaskItemPQueue.push(std::move(PriorityTaskItem(startTp, std::move(titem))));
-  }
-  if (notifyTag && State.load() == RunnerState::Running)
+  } // lk
+  if (notifyTag)
     CondVar.notify_one();
 }
 //
@@ -201,11 +198,14 @@ SlimSerialExecutor::PriorityTimerImpl::AddNormalTask(TaskItem_Ty &&titem,
                                                      Duration_Ty delayMicroSec,
                                                      Duration_Ty periodMicroSec,
                                                      uint64_t repCount) {
-  RepeatedTaskId_Ty resId = GetRepeatedId();
+  RepeatedTaskId_Ty resId = InvalidRepeatedTaskId;
   {
     std::lock_guard<std::mutex> lk(InternalMutex);
+    if (State.load() == State_Ty::Stopped)
+      return;
+    resId = GetRepeatedId();
     RepeatedIdUSet.insert(resId);
-  }
+  } // lk
   PostRepeatedTask(std::move(titem), resId, delayMicroSec, periodMicroSec,
                    repCount);
   return resId;
@@ -214,7 +214,7 @@ SlimSerialExecutor::PriorityTimerImpl::AddNormalTask(TaskItem_Ty &&titem,
 bool SlimSerialExecutor::PriorityTimerImpl::TryCancelTask(
     RepeatedTaskId_Ty rtid) {
   std::lock_guard<std::mutex> lk(InternalMutex);
-  if (State.load() == RunnerState::Stopped)
+  if (State.load() == State_Ty::Stopped)
     return false;
   auto fIter = RepeatedIdUSet.find(rtid);
   if (fIter == RepeatedIdUSet.end())
@@ -235,14 +235,13 @@ void SlimSerialExecutor::PriorityTimerImpl::ThreadFunc() {
   for (;;) {
     std::unique_lock<std::mutex> ulk(InternalMutex);
     CondVar.wait(ulk, [this]() {
-      return State.load() == RunnerState::Stopped ||
-             (!TaskItemPQueue.empty() && State == RunnerState::Running);
+      return State.load() == State_Ty::Stopped ||
+             (!TaskItemPQueue.empty() && State == State_Ty::Running);
     });
-    if (State.load() == RunnerState::Stopped)
+    if (State.load() == State_Ty::Stopped)
       break;
-    if (State.load() == RunnerState::Paused) {
-      CondVar.wait(ulk,
-                   [this]() { return State.load() != RunnerState::Paused; });
+    if (State.load() == State_Ty::Paused) {
+      CondVar.wait(ulk, [this]() { return State.load() != State_Ty::Paused; });
       continue;
     }
     if (TaskItemPQueue.empty())
@@ -264,6 +263,9 @@ void SlimSerialExecutor::PriorityTimerImpl::PostRepeatedTask(
     Duration_Ty periodMicroSec, uint64_t repCount) {
   auto startTp = Clock_Ty::now() + delayMicroSec;
   bool notifyTag = true;
+  auto postFunc = [this, &titem, rtid, periodMicroSec, repCount]() {
+    this->ExecuteAndAddNext(std::move(titem), rtid, periodMicroSec, repCount);
+  };
   {
     std::lock_guard<std::mutex> lk(InternalMutex);
     auto fIter = RepeatedIdUSet.find(rtid);
@@ -273,15 +275,14 @@ void SlimSerialExecutor::PriorityTimerImpl::PostRepeatedTask(
       RepeatedIdUSet.erase(fIter);
       return;
     }
-    auto postFunc = [this, &titem, rtid, periodMicroSec, repCount]() {
-      this->ExecuteAndAddNext(std::move(titem), rtid, periodMicroSec, repCount);
-    };
     notifyTag =
-        TaskItemPQueue.empty() ? true : startTp <= TaskItemPQueue.top().StartTp;
+        (TaskItemPQueue.empty() ? true
+                                : startTp <= TaskItemPQueue.top().StartTp) &&
+        (State.load() == State_Ty::Running);
     TaskItemPQueue.push(
         std::move(PriorityTaskItem(startTp, std::move(postFunc), rtid)));
   } // lk
-  if (notifyTag && State.load() == RunnerState::Running)
+  if (notifyTag)
     CondVar.notify_one();
 }
 //
@@ -306,7 +307,7 @@ void SlimSerialExecutor::PriorityTimerImpl::ExecuteAndAddNext(
     TaskItemPQueue.push(
         PriorityTaskItem(nextStartTp, std::move(postFunc), rtid));
   } // lk
-  if (notifyTag && State.load() == RunnerState::Running)
+  if (notifyTag && State.load() == State_Ty::Running)
     CondVar.notify_one();
 }
 /************************************
@@ -314,58 +315,58 @@ void SlimSerialExecutor::PriorityTimerImpl::ExecuteAndAddNext(
  * 外部接口封装 *
  ************************************
  */
-SlimSerialExecutor::PriorityTimer::PriorityTimer() : PTimerUPtr{nullptr} {}
+SlimSerialExecutor::SlimSerialExecutor() : PTimerUPtr{nullptr} {}
 //
-SlimSerialExecutor::PriorityTimer::~PriorityTimer() {}
+SlimSerialExecutor::~SlimSerialExecutor() {}
 //
-void SlimSerialExecutor::PriorityTimer::Start() {
+void SlimSerialExecutor::Start() {
   if (!PTimerUPtr)
     PTimerUPtr =
         std::make_unique<PriorityTimerImpl>(std::move(PriorityTimerImpl()));
   PTimerUPtr->Start();
 }
 //
-void SlimSerialExecutor::PriorityTimer::Stop() {
+void SlimSerialExecutor::Stop() {
   if (!PTimerUPtr)
     return;
   PTimerUPtr->Stop();
   PTimerUPtr.reset();
 }
 //
-void SlimSerialExecutor::PriorityTimer::Resume() {
+void SlimSerialExecutor::Resume() {
   if (!PTimerUPtr)
     return;
   PTimerUPtr->Resume();
 }
 //
-void SlimSerialExecutor::PriorityTimer::Pause() {
+void SlimSerialExecutor::Pause() {
   if (!PTimerUPtr)
     return;
   PTimerUPtr->Pause();
 }
 //
-void SlimSerialExecutor::PriorityTimer::Pause(
+void SlimSerialExecutor::Pause(
     const std::chrono::microseconds &timeoffMicroSec) {
   if (!PTimerUPtr)
     return;
   PTimerUPtr->Pause(timeoffMicroSec);
 }
 //
-void SlimSerialExecutor::PriorityTimer::AddRealTimeTask(TaskItem_Ty &&titem) {
+void SlimSerialExecutor::AddRealTimeTask(TaskItem_Ty &&titem) {
   if (!PTimerUPtr)
     return;
   PTimerUPtr->AddRealTimeTask(std::move(titem));
 }
 //
-void SlimSerialExecutor::PriorityTimer::AddNormalTask(
-    TaskItem_Ty &&titem, Duration_Ty delayMicroSec) {
+void SlimSerialExecutor::AddNormalTask(TaskItem_Ty &&titem,
+                                       Duration_Ty delayMicroSec) {
   if (!PTimerUPtr)
     return;
   PTimerUPtr->AddNormalTask(std::move(titem), delayMicroSec);
 }
 //
 [[nodiscard]] SlimSerialExecutor::RepeatedTaskId_Ty
-SlimSerialExecutor::PriorityTimer::AddNormalTask(
+SlimSerialExecutor::AddNormalTask(
     TaskItem_Ty &&titem, const std::chrono::microseconds &delayMicroSec,
     const std::chrono::microseconds &periodMicroSec, uint64_t repCount) {
   if (!PTimerUPtr)
@@ -374,16 +375,175 @@ SlimSerialExecutor::PriorityTimer::AddNormalTask(
                             repCount);
 }
 //
-bool SlimSerialExecutor::PriorityTimer::TryCancelSpecifiedTask(
-    RepeatedTaskId_Ty rtid) {
+bool SlimSerialExecutor::TryCancelSpecifiedTask(RepeatedTaskId_Ty rtid) {
   if (!PTimerUPtr)
     return;
   PTimerUPtr->TryCancelTask(rtid);
 }
 //
-void SlimSerialExecutor::PriorityTimer::DeleteAllTasks() {
+void SlimSerialExecutor::DeleteAllTasks() {
   if (!PTimerUPtr)
     return;
   PTimerUPtr->DeleteAllTask();
+}
+/************************************
+ * class SlimExecutor::SlimExecutorImpl，定义 *
+ ************************************
+ */
+class SlimExecutor::SlimExecutorImpl {
+
+public:
+  // data member
+  TaskRunnerUPtr_Ty RunnerUPtr;
+  std::queue<TaskItem_Ty> TaskItemQueue;
+  //
+  std::mutex InternalMutex;
+  std::condition_variable CondVar;
+  std::atomic<State_Ty> State;
+  //
+public:
+  SlimExecutorImpl();
+  ~SlimExecutorImpl();
+  // 对外接口
+  void Start();
+  //
+  void Stop();
+  //
+  void Resume();
+  //
+  void Pause();
+  //
+  void AddTask(TaskItem_Ty &&titem);
+  //
+  void ThreadFunc();
+}; // class SlimExecutor::SlimExecutorImpl
+//
+SlimExecutor::SlimExecutorImpl::SlimExecutorImpl()
+    : RunnerUPtr{nullptr}, TaskItemQueue{}, InternalMutex{}, CondVar{},
+      State{State_Ty::Stopped} {}
+//
+SlimExecutor::SlimExecutorImpl::~SlimExecutorImpl() { Stop(); }
+//
+void SlimExecutor::SlimExecutorImpl::Start() {
+  std::lock_guard<std::mutex> lk(InternalMutex);
+  if (State.load() != State_Ty::Stopped)
+    return;
+  State.store(State_Ty::Running);
+  for (; !TaskItemQueue.empty();)
+    TaskItemQueue.pop();
+  RunnerUPtr =
+      std::make_unique<TaskRunner_Ty>([this]() { this->ThreadFunc(); });
+}
+//
+void SlimExecutor::SlimExecutorImpl::Stop() {
+  {
+    std::lock_guard<std::mutex> lk(InternalMutex);
+    if (State.load() == State_Ty::Stopped)
+      return;
+    for (; !TaskItemQueue.empty();)
+      TaskItemQueue.pop();
+    State.store(State_Ty::Stopped);
+  }
+  CondVar.notify_one();
+  RunnerUPtr.reset();
+}
+//
+void SlimExecutor::SlimExecutorImpl::Resume() {
+  {
+    std::lock_guard<std::mutex> lk(InternalMutex);
+    if (State.load() != State_Ty::Paused)
+      return;
+    State.store(State_Ty::Running);
+  }
+  CondVar.notify_one();
+}
+//
+void SlimExecutor::SlimExecutorImpl::Pause() {
+  std::lock_guard<std::mutex> lk(InternalMutex);
+  if (State.load() != State_Ty::Running)
+    return;
+  State.store(State_Ty::Paused);
+}
+//
+void SlimExecutor::SlimExecutorImpl::AddTask(TaskItem_Ty &&titem) {
+  bool notifyTag = true;
+  {
+    std::lock_guard<std::mutex> lk(InternalMutex);
+    if (State.load() == State_Ty::Stopped)
+      return;
+    notifyTag = State.load() != State_Ty::Paused;
+    TaskItemQueue.push(std::move(titem));
+  } // lk
+  if (notifyTag)
+    CondVar.notify_one();
+}
+//
+void SlimExecutor::SlimExecutorImpl::ThreadFunc() {
+  for (;;) {
+    std::unique_lock<std::mutex> ulk(InternalMutex);
+    CondVar.wait(ulk, [this]() {
+      return State.load() == State_Ty::Stopped ||
+             (!TaskItemQueue.empty() && State == State_Ty::Running);
+    });
+    if (State.load() == State_Ty::Stopped)
+      break;
+    if (State.load() == State_Ty::Paused) {
+      CondVar.wait(ulk, [this]() { return State.load() != State_Ty::Paused; });
+      continue;
+    }
+    if (TaskItemQueue.empty())
+      continue;
+
+    auto pitem = TaskItemQueue.top();
+    ulk.unlock();
+    pitem();
+  } // for-loop
+}
+/************************************
+ * class SlimExecutor::SlimExecutorImpl，定义 *
+ ************************************
+ */
+SlimExecutor::SlimExecutor() : ExecutorUPtr{nullptr} {}
+//
+SlimExecutor::~SlimExecutor() {
+  if (!ExecutorUPtr)
+    return;
+  ExecutorUPtr->Stop();
+}
+//
+void SlimExecutor::Start() {
+  if (!ExecutorUPtr)
+    return;
+  ExecutorUPtr->Start();
+}
+//
+void SlimExecutor::Stop() {
+  if (!ExecutorUPtr)
+    return;
+  ExecutorUPtr->Stop();
+}
+//
+bool SlimExecutor::IsRunning() const {
+  if (!ExecutorUPtr)
+    return false;
+  return (ExecutorUPtr->State.load()) == State_Ty::Running;
+}
+//
+void SlimExecutor::Resume() {
+  if (!ExecutorUPtr)
+    return;
+  ExecutorUPtr->Resume();
+}
+//
+void SlimExecutor::Pause() {
+  if (!ExecutorUPtr)
+    return;
+  ExecutorUPtr->Pause();
+}
+//
+void SlimExecutor::AddTask(TaskItem_Ty &&titem) {
+  if (!ExecutorUPtr)
+    return;
+  ExecutorUPtr->AddTask(std::move(titem));
 }
 } // namespace CustomerDefined
