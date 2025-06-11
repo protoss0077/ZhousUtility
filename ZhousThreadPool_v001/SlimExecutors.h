@@ -10,6 +10,11 @@
 #include <future>
 #include <mutex>
 //
+#ifdef _DEBUG
+#include <iostream>
+#endif // _DEBUG
+
+//
 namespace CustomerDefined {
 /************************************
  * class SlimSerialExecutor *
@@ -98,6 +103,8 @@ public:
    */
   void Pause();
   void Pause(const std::chrono::microseconds &timeoffMicroSec);
+  //
+  State_Ty GetState() const;
   /* Add系列
    * 添加常规（无参数）任务
    * 如果不指定周期和重复次数默认重复1次（接口1）
@@ -197,15 +204,17 @@ public:
   //
   void Pause();
   //
+  State_Ty GetState() const;
+  //
   void AddTask(TaskItem_Ty &&titem);
   //
   template <typename Func_Ty, typename... Args_Ty>
   void PostNoReturnTask(Func_Ty &&func, Args_Ty &&...args) {
     if (!IsRunning())
       throw std::runtime_error("SlimExecutor未运行...");
-    AddTask([]() {
-      std::bind(std::forward<Func_Ty>(func), std::forward<Args_Ty>(args)...);
-    });
+    auto titem =
+        std::bind(std::forward<Func_Ty>(func), std::forward<Args_Ty>(args)...);
+    AddTask(std::move([titem]() { titem(); }));
   }
   //
   template <typename Func_Ty, typename... Args_Ty>
@@ -217,7 +226,7 @@ public:
     auto taskItemSPtr = std::make_shared<std::packaged_task<Result_Ty()>>(
         std::bind(std::forward<Func_Ty>(func), std::forward<Args_Ty>(args)...));
     std::future<Result_Ty> resFu = taskItemSPtr->get_future();
-    AddTask([taskItemSPtr]() { (*taskItemSPtr)(); });
+    AddTask(std::move([taskItemSPtr]() { (*taskItemSPtr)(); }));
     return resFu;
   }
 }; // class SlimExecutor

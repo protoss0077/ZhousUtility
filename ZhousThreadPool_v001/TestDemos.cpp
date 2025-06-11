@@ -202,7 +202,8 @@ int Test02() {
       std::cout << mainPrompt << cnt << "...";
       std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
-    serialPriorityExecutor.Pause();
+    // serialPriorityExecutor.Pause();
+    serialPriorityExecutor.Pause(SlimSerialExecutor::Duration_Ty(2000 * 1000));
     for (size_t cnt = 0; cnt < 10; ++cnt) {
       std::cout << mainPrompt << cnt << "...";
       std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -224,9 +225,135 @@ int Test02() {
       std::cout << mainPrompt << "[ " << cnt << " ]:" << resColl2[cnt].get();
     }
     //
-    // serialPriorityExecutor.Stop();
+    serialPriorityExecutor.DeleteAllTasks();
+    //
+    std::cout << mainPrompt
+              << "添加一个 无限重复(周期 1 秒) 的任务,主线程休眠 10 sec...";
+    SlimSerialExecutor::RepeatedTaskId_Ty rtid =
+        serialPriorityExecutor.AddNormalTask(
+            TestTFuncNoResNoArg, SlimSerialExecutor::Duration_Ty(1234 * 1000),
+            SlimSerialExecutor::Duration_Ty(1000 * 1000),
+            SlimSerialExecutor::InfiniteRepeated);
+    for (size_t cnt = 0; cnt < 10; ++cnt) {
+      std::cout << mainPrompt << cnt << "...";
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    serialPriorityExecutor.TryCancelSpecifiedTask(rtid);
+    //
+    std::cout << mainPrompt << "删除重复任务:" << rtid;
+    std::cout << mainPrompt << "主线程休眠 10 sec...";
+    for (size_t cnt = 0; cnt < 10; ++cnt) {
+      std::cout << mainPrompt << cnt << "...";
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
     //
     std::cout << mainPrompt << "Test 02 Ended...";
+  } catch (...) {
+    std::cout << "\nTest02 检测到异常...";
+    return -1;
+  }
+  return 0;
+}
+//
+int Test03() {
+  using namespace CustomerDefined;
+  try {
+    const std::string mainPrompt{std::string("\n[MainThread,") +
+                                 GetThisThreadIdString() + "] |>"};
+    std::cout << mainPrompt << "Test 03 Started...";
+    //
+    SlimExecutor slimExer;
+    slimExer.Start();
+    const size_t testCount{12};
+    auto tFuncA = [&slimExer, testCount]() {
+      std::cout << "[thread," << std::this_thread::get_id()
+                << "] 每 200ms 添加 10个 无参数 无返回 任务...";
+      for (size_t cnt = 0; cnt < testCount; ++cnt) {
+        slimExer.AddTask(TestTFuncNoResNoArg);
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      }
+      std::cout << "[thread," << std::this_thread::get_id()
+                << "] 添加 10个 无参数 无返回 任务 -=成功=-";
+    };
+    //
+    auto tFuncB = [&slimExer, testCount]() {
+      std::cout << "[thread," << std::this_thread::get_id()
+                << "] 每 300ms 添加 10个 带参数 无返回 任务...";
+      for (size_t cnt = 0; cnt < testCount; ++cnt) {
+        slimExer.PostNoReturnTask(TestTFuncNoResWithArg, cnt * 123);
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+      }
+      std::cout << "[thread," << std::this_thread::get_id()
+                << "] 添加 10个 带参数 无返回 任务 -=成功=-";
+    };
+    //
+    std::future<size_t> CResColl[testCount];
+    auto tFuncC = [&slimExer, testCount, &CResColl]() {
+      std::cout << "[thread," << std::this_thread::get_id()
+                << "] 每 500ms 添加 10个 无参数 有返回 任务...";
+      for (size_t cnt = 0; cnt < testCount; ++cnt) {
+        CResColl[cnt] = std::move(slimExer.PostTask(TestTFuncWithResNoArg));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      }
+      std::cout << "[thread," << std::this_thread::get_id()
+                << "] 添加 10个 无参数 有返回 任务 -=成功=-";
+    };
+    //
+    std::future<size_t> DResColl[testCount];
+    auto tFuncD = [&slimExer, testCount, &DResColl]() {
+      std::cout << "[thread," << std::this_thread::get_id()
+                << "] 每 1000ms 添加 10个 带参数 有返回 任务...";
+      for (size_t cnt = 0; cnt < testCount; ++cnt) {
+        DResColl[cnt] =
+            std::move(slimExer.PostTask(TestTFuncWithResWithArg, cnt * 345));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+      }
+      std::cout << "[thread," << std::this_thread::get_id()
+                << "] 添加 10个 带参数 有返回 任务 -=成功=-";
+    };
+    //
+    std::thread threadColl[4];
+    threadColl[0] = std::thread(tFuncA);
+    threadColl[1] = std::thread(tFuncB);
+    threadColl[2] = std::thread(tFuncC);
+    threadColl[3] = std::thread(tFuncD);
+    //
+    std::cout << mainPrompt << "主线程休眠 5 秒后，暂停 执行...";
+    for (size_t cnt = 0; cnt < 5; ++cnt) {
+      std::cout << mainPrompt << cnt << "...";
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    std::cout << mainPrompt << "Executor paused...";
+    slimExer.Pause();
+    std::cout << mainPrompt << "主线程休眠 5 秒后，继续 执行...";
+    for (size_t cnt = 0; cnt < 5; ++cnt) {
+      std::cout << mainPrompt << cnt << "...";
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    slimExer.Resume();
+    std::cout << mainPrompt << "Executor resumed...";
+    //
+    std::cout << mainPrompt << "主线程休眠 60 秒后,结束测试...";
+    for (size_t cnt = 0; cnt < 60; ++cnt) {
+      std::cout << mainPrompt << cnt << "...";
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    //
+    for (size_t cnt = 0; cnt < 4; ++cnt) {
+      if (threadColl[cnt].joinable())
+        threadColl[cnt].join();
+    }
+    std::cout << mainPrompt << " CResColl 任务结果:\n";
+    for (size_t cnt = 0; cnt < 12; ++cnt) {
+      std::cout << CResColl[cnt].get() << " ; ";
+    }
+    //
+    std::cout << mainPrompt << " DResColl 任务结果:\n";
+    for (size_t cnt = 0; cnt < 12; ++cnt) {
+      std::cout << DResColl[cnt].get() << " ; ";
+    }
+    //
+    std::cout << mainPrompt << "Test 03 Ended...";
   } catch (...) {
     std::cout << "\nTest02 检测到异常...";
     return -1;
@@ -238,11 +365,13 @@ int Test02() {
 int main() {
   std::cout << "\nTests Start...";
   //
-  // std::cout << ((Test01() == 0) ? "\nTest01 Successed..." : "Test01
-  // Failed...");
+  std::cout << ((Test01() == 0) ? "\nTest01 Successed..."
+                                : "Test01   Failed...");
   //
-  std::cout << ((Test02() == 0) ? "\nTest02 Successed..." : "Test02 Failed...");
-
+  std::cout << ((Test02() == 0) ? "\nTest02 Successed..."
+                                : "Test02   Failed...");
+  //
+  std::cout << ((Test03() == 0) ? "\nTest03 Successed..." : "Test03 Failed...");
   //
   std::cout << "\nAll tests done, press any key to exit...";
   std::cin.get();
