@@ -12,7 +12,7 @@
     <Filter Include="源文件\ZhousThreadPool">
       <UniqueIdentifier>{ac6476e6-e85c-41ec-8573-085d29b00044}</UniqueIdentifier>
     </Filter>
-    <Filter Include="源文件\SlimSerialExecutor">
+    <Filter Include="源文件\SlimExecutors">
       <UniqueIdentifier>{3005a1e7-7ef8-4b5b-a56f-bd8842ecb8b4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -23,8 +23,8 @@
     <ClCompile Include="ZhousThreadPool.cpp">
       <Filter>源文件\ZhousThreadPool</Filter>
     </ClCompile>
-    <ClCompile Include="SlimSerialExecutor.cpp">
-      <Filter>源文件\SlimSerialExecutor</Filter>
+    <ClCompile Include="SlimExecutors.cpp">
+      <Filter>源文件\SlimExecutors</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -34,8 +34,8 @@
     <ClInclude Include="ZhousThreadPool.h">
       <Filter>源文件\ZhousThreadPool</Filter>
     </ClInclude>
-    <ClInclude Include="SlimSerialExecutor.h">
-      <Filter>源文件\SlimSerialExecutor</Filter>
+    <ClInclude Include="SlimExecutors.h">
+      <Filter>源文件\SlimExecutors</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

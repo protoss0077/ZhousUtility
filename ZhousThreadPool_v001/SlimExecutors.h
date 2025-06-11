@@ -30,8 +30,9 @@ public:
   //
   using TaskItem_Ty = std::function<void()>;
   //
-  static constexpr const uint64_t InfiniteRepeated{-1};
-  static constexpr const uint64_t InvalidRepeatedTaskId{-1};
+  static constexpr const uint64_t InfiniteRepeated{static_cast<uint64_t>(-1)};
+  static constexpr const uint64_t InvalidRepeatedTaskId{
+      static_cast<uint64_t>(-1)};
   //
   /* enum class State
    * 标记Timer内部状态
@@ -132,10 +133,10 @@ public:
     if (!IsRunning())
       throw std::runtime_error("SlimSerialExecutor未运行...");
     using Result_Ty = std::result_of_t<Func_Ty(Args_Ty...)>;
-    auto titemSPtr = std::make_shared<std::packaged_task<Result_Ty>>(
+    auto titemSPtr = std::make_shared<std::packaged_task<Result_Ty()>>(
         std::bind(std::forward<Func_Ty>(std::move(func)),
                   std::forward<Args_Ty>(args)...));
-    Result_Ty resFu = titemSPtr->get_future();
+    std::future<Result_Ty> resFu = titemSPtr->get_future();
     AddRealTimeTask([titemSPtr]() { (*titemSPtr)(); });
     return resFu;
   }
@@ -147,12 +148,12 @@ public:
     if (!IsRunning())
       throw std::runtime_error("SlimSerialExecutor未运行...");
     using Result_Ty = std::result_of_t<Func_Ty(Args_Ty...)>;
-    auto titemSPtr = std::make_shared<std::packaged_task<Result_Ty>>(
+    auto titemSPtr = std::make_shared<std::packaged_task<Result_Ty()>>(
         std::bind(std::forward<Func_Ty>(std::move(func)),
                   std::forward<Args_Ty>(args)...));
-    Result_Ty resFu = titemSPtr->get_future();
-    AddRealTimeTask([titemSPtr, delay]() { (*titemSPtr)(); },
-                    std::chrono::duration_cast<Duration_Ty>(delay));
+    std::future<Result_Ty> resFu = titemSPtr->get_future();
+    AddNormalTask([titemSPtr, delay]() { (*titemSPtr)(); },
+                  std::chrono::duration_cast<Duration_Ty>(delay));
     return resFu;
   }
 }; // class SlimSerialExecutor

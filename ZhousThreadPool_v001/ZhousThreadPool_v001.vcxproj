@@ -123,10 +123,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="SlimSerialExecutor.cpp" />
+    <ClCompile Include="SlimExecutors.cpp" />
     <ClCompile Include="TestDemos.cpp" />
     <ClCompile Include="ZhousThreadPool.cpp" />
-    <ClInclude Include="SlimSerialExecutor.h" />
+    <ClInclude Include="SlimExecutors.h" />
     <ClInclude Include="ThreadWapper.h" />
     <ClInclude Include="ZhousThreadPool.h" />
   </ItemGroup>

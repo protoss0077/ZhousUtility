@@ -1,5 +1,8 @@
+//
 #include "ZhousThreadPool.h"
-
+//
+#include "SlimExecutors.h"
+//
 #ifdef _DEBUG
 #include <iostream>
 #include <sstream>
@@ -156,10 +159,90 @@ int Test01() {
   return 0;
 }
 //
+int Test02() {
+  using namespace CustomerDefined;
+  try {
+    const std::string mainPrompt{std::string("\n[MainThread,") +
+                                 GetThisThreadIdString() + "] |>"};
+    std::cout << mainPrompt << "Test 02 Started...";
+    SlimSerialExecutor serialPriorityExecutor;
+    serialPriorityExecutor.Start();
+    //
+    const size_t TestCount = 16;
+    std::future<size_t> resColl1[TestCount];
+    auto TFunc1 = [&serialPriorityExecutor, TestCount, &resColl1]() {
+      std::cout << "[Thread" << std::this_thread::get_id() << "] 添加 "
+                << TestCount << " 个延时任务到SlimSerialExecutor";
+      for (size_t cnt = 0; cnt < TestCount; ++cnt) {
+        resColl1[cnt] = serialPriorityExecutor.PostNormalTask(
+            SlimSerialExecutor::Duration_Ty((cnt + 1) * 100),
+            TestTFuncWithResWithArg, (cnt + 1) * 100);
+      }
+      std::cout << "[Thread" << std::this_thread::get_id() << "] 添加 "
+                << TestCount << " 个 延时 任务到SlimSerialExecutor 【完成】";
+    };
+    //
+    std::future<size_t> resColl2[TestCount];
+    auto TFunc2 = [&serialPriorityExecutor, TestCount, &resColl2]() {
+      std::cout
+          << "[Thread" << std::this_thread::get_id()
+          << "] 每隔 100 milliseconds 添加 1 个 实时 任务到SlimSerialExecutor";
+      for (size_t cnt = 0; cnt < TestCount; ++cnt) {
+        resColl2[cnt] = serialPriorityExecutor.PostRealTimeTask(
+            TestTFuncWithResWithArg, 500);
+      }
+      std::cout << "[Thread" << std::this_thread::get_id() << "] 添加 "
+                << TestCount << " 个 实时 任务到SlimSerialExecutor 【完成】";
+    };
+    //
+    std::thread t1{TFunc1};
+    std::thread t2{TFunc2};
+    //
+    for (size_t cnt = 0; cnt < 3; ++cnt) {
+      std::cout << mainPrompt << cnt << "...";
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+    serialPriorityExecutor.Pause();
+    for (size_t cnt = 0; cnt < 10; ++cnt) {
+      std::cout << mainPrompt << cnt << "...";
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+    serialPriorityExecutor.Resume();
+    //
+    if (t1.joinable())
+      t1.join();
+    if (t2.joinable())
+      t2.join();
+    //
+    std::cout << mainPrompt << "打印带返回值的future结果1:";
+    for (size_t cnt = 0; cnt < TestCount; ++cnt) {
+      std::cout << mainPrompt << "[ " << cnt << " ]:" << resColl1[cnt].get();
+    }
+    //
+    std::cout << mainPrompt << "打印带返回值的future结果2:";
+    for (size_t cnt = 0; cnt < TestCount; ++cnt) {
+      std::cout << mainPrompt << "[ " << cnt << " ]:" << resColl2[cnt].get();
+    }
+    //
+    // serialPriorityExecutor.Stop();
+    //
+    std::cout << mainPrompt << "Test 02 Ended...";
+  } catch (...) {
+    std::cout << "\nTest02 检测到异常...";
+    return -1;
+  }
+  return 0;
+}
+
+//
 int main() {
   std::cout << "\nTests Start...";
   //
-  std::cout << ((Test01() == 0) ? "\nTest01 Successed..." : "Test01 Failed...");
+  // std::cout << ((Test01() == 0) ? "\nTest01 Successed..." : "Test01
+  // Failed...");
+  //
+  std::cout << ((Test02() == 0) ? "\nTest02 Successed..." : "Test02 Failed...");
+
   //
   std::cout << "\nAll tests done, press any key to exit...";
   std::cin.get();
