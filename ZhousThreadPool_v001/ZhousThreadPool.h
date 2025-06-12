@@ -26,7 +26,7 @@ public:
   // 最小线程数限制
   static const unsigned int MinThreadCountLimit;
   // 空闲时从池中移除线程的超时数(milliseconds)
-  static constexpr const unsigned int AutoRemoveTimeOut{1000};
+  static constexpr const unsigned int AutoRemoveTimeOut{5*1000};
 
 private:
   // 移除标记的可用值
@@ -39,11 +39,11 @@ public:
    * 信息快照
    */
   struct PoolSnapshot {
-    bool RunningTag;
-    unsigned int WorkingThreadCount;
-    unsigned int InPoolThreadCount;
-    unsigned int ThreadCountLimit;
-    size_t TaskItemInQueue;
+    const bool RunningTag;
+    const unsigned int WorkingThreadCount;
+    const unsigned int InPoolThreadCount;
+    const unsigned int ThreadCountLimit;
+    const size_t TaskItemInQueue;
     //
     PoolSnapshot() = delete;
     PoolSnapshot(const PoolSnapshot &) = default;
