@@ -3,20 +3,20 @@
 #include <thread>
 
 namespace CustomerDefined {
-/* struct ThreadWapper
+/* struct ThreadWrapper
  * Thread包装器
  * 以头文件的形式提供
  */
-struct ThreadWapper {
-  ThreadWapper() = delete;
-  ThreadWapper(const ThreadWapper &) = delete;
-  // ThreadWapper(ThreadWapper&&)=default;
+struct ThreadWrapper {
+  ThreadWrapper() = delete;
+  ThreadWrapper(const ThreadWrapper &) = delete;
+  // ThreadWrapper(ThreadWrapper&&)=default;
   //
-  explicit ThreadWapper(std::function<void(void)> tfunc)
+  explicit ThreadWrapper(std::function<void(void)> tfunc)
       : InternalThread{std::move(tfunc)} {}
   //
-  ~ThreadWapper() { Join(); }
-  ThreadWapper &operator=(const ThreadWapper &) = delete;
+  ~ThreadWrapper() { Join(); }
+  ThreadWrapper &operator=(const ThreadWrapper &) = delete;
   //
   bool Joinable() { return InternalThread.joinable(); }
   //
@@ -29,5 +29,5 @@ struct ThreadWapper {
 
 private:
   std::thread InternalThread;
-}; // struct ThreadWapper
+}; // struct ThreadWrapper
 } // namespace CustomerDefined

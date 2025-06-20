@@ -1,6 +1,6 @@
 #pragma once
 //
-#include "ThreadWapper.h"
+#include "ThreadWrapper.h"
 //
 #include <chrono>
 //
@@ -26,7 +26,7 @@ public:
   using TaskRunnerTag_Ty = uint64_t;
   using RepeatedTaskId_Ty = uint64_t;
   // 执行线程
-  using TaskRunner_Ty = ThreadWapper;
+  using TaskRunner_Ty = ThreadWrapper;
   using TaskRunnerUPtr_Ty = std::unique_ptr<TaskRunner_Ty>;
   //
   using Clock_Ty = std::chrono::high_resolution_clock;
@@ -134,6 +134,55 @@ public:
    * 不提供重复任务(封装太麻烦)
    * 不用返回值时由调用者封装
    */
+#if _MSVC_LANG && (__cplusplus >= 202002L || _MSVC_LANG >= 202002L)
+  // C++20+
+  // !!!AI建议，仔细检查
+  template <typename Func_Ty, typename... Args_Ty>
+  auto PostRealTimeTask(Func_Ty &&func, Args_Ty &&...args)
+      -> std::future<std::invoke_result_t<Func_Ty, Args_Ty...>> {
+    if (!IsRunning()) {
+      throw std::runtime_error("SlimSerialExecutor未运行...");
+    }
+
+    using Result_Ty = std::invoke_result_t<Func_Ty, Args_Ty...>;
+    auto task = std::packaged_task<Result_Ty()>(
+        [func = std::forward<Func_Ty>(func),
+         ... args = std::forward<Args_Ty>(args)]() mutable {
+          return std::invoke(std::move(func), std::move(args)...);
+        });
+
+    auto res_fu = task.get_future();
+    AddRealTimeTask([task = std::move(task)]() mutable { task(); });
+
+    return res_fu;
+  }
+#else // C++20-
+#if _MSVC_LANG && (_MSVC_LANG >= 201703L || __cplusplus >= 201703L)
+  // C++17+
+  // !!!AI建议，仔细检查
+  template <typename Func_Ty, typename... Args_Ty>
+  auto PostRealTimeTask(Func_Ty &&func, Args_Ty &&...args) -> std::future<
+      std::invoke_result_t<std::decay_t<Func_Ty>, std::decay_t<Args_Ty>...>> {
+    if (!IsRunning()) {
+      throw std::runtime_error("SlimSerialExecutor未运行...");
+    }
+
+    using Result_Ty =
+        std::invoke_result_t<std::decay_t<Func_Ty>, std::decay_t<Args_Ty>...>;
+
+    auto task_ptr = std::make_unique<std::packaged_task<Result_Ty()>>(
+        [func = std::forward<Func_Ty>(func),
+         ... args = std::forward<Args_Ty>(args)]() mutable {
+          return std::invoke(std::move(func), std::move(args)...);
+        });
+
+    auto res_fu = task_ptr->get_future();
+    AddRealTimeTask(
+        [task_ptr = std::move(task_ptr)]() mutable { (*task_ptr)(); });
+
+    return res_fu;
+  }
+#else // C++17-
   template <typename Func_Ty, typename... Args_Ty>
   [[nodiscard]] auto PostRealTimeTask(Func_Ty &&func, Args_Ty... args)
       -> std::future<std::result_of_t<Func_Ty(Args_Ty...)>> {
@@ -163,6 +212,9 @@ public:
                   std::chrono::duration_cast<Duration_Ty>(delay));
     return resFu;
   }
+#endif
+#endif //
+
 }; // class SlimSerialExecutor
 /************************************
  * class SlimExecutor *
@@ -172,7 +224,7 @@ public:
 class SlimExecutor {
 public:
   // 执行线程
-  using TaskRunner_Ty = ThreadWapper;
+  using TaskRunner_Ty = ThreadWrapper;
   using TaskRunnerUPtr_Ty = std::unique_ptr<TaskRunner_Ty>;
   //
   using TaskItem_Ty = std::function<void()>;

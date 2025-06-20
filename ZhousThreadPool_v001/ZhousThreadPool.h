@@ -1,6 +1,6 @@
 #pragma once
 //
-#include "ThreadWapper.h"
+#include "ThreadWrapper.h"
 //
 #include <string>
 //
@@ -17,7 +17,7 @@ namespace CustomerDefined {
  */
 class ZhousThreadPool {
 public:
-  using ThreadWapperSPtr_Ty = std::shared_ptr<ThreadWapper>;
+  using ThreadWapperSPtr_Ty = std::shared_ptr<ThreadWrapper>;
   // 队列内工作项
   using TaskItem_Ty = std::function<void(void)>;
   //

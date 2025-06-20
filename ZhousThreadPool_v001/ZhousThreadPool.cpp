@@ -88,7 +88,7 @@ ZhousThreadPool::~ZhousThreadPool() { Stop(); }
 void ZhousThreadPool::Start() {
   if (RunningTag.load())
     return;
-  auto twSPtr = std::make_shared<ThreadWapper>([this]() { Thread0Func(); });
+  auto twSPtr = std::make_shared<ThreadWrapper>([this]() { Thread0Func(); });
   ThreadSPtrColl.push_back(std::move(twSPtr));
   InPoolThreadCount++;
   RunningTag.store(true);
@@ -122,7 +122,7 @@ unsigned int ZhousThreadPool::TryAddThread() {
   if (RemoveState.load() != RemoveStateNone)
     return InPoolThreadCount.load();
   //
-  auto twSPtr = std::make_shared<ThreadWapper>([this]() { DefThreadFunc(); });
+  auto twSPtr = std::make_shared<ThreadWrapper>([this]() { DefThreadFunc(); });
   ThreadSPtrColl.push_back(std::move(twSPtr));
   InPoolThreadCount++;
   return InPoolThreadCount.load();
@@ -204,7 +204,7 @@ void ZhousThreadPool::Thread0Func() {
         if (InPoolThreadCount.load() < ThreadCountLimit &&
             (WorkingThreadCount.load() + 1) >= InPoolThreadCount.load()) {
           auto twSPtr =
-              std::make_shared<ThreadWapper>([this]() { DefThreadFunc(); });
+              std::make_shared<ThreadWrapper>([this]() { DefThreadFunc(); });
           ThreadSPtrColl.push_back(std::move(twSPtr));
           InPoolThreadCount++;
         }
