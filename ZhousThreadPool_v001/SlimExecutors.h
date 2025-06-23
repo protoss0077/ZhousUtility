@@ -170,7 +170,7 @@ public:
     using Result_Ty =
         std::invoke_result_t<std::decay_t<Func_Ty>, std::decay_t<Args_Ty>...>;
 
-    auto task_ptr = std::make_unique<std::packaged_task<Result_Ty()>>(
+    auto task_ptr = std::make_shared<std::packaged_task<Result_Ty()>>(
         [func = std::forward<Func_Ty>(func),
          ... args = std::forward<Args_Ty>(args)]() mutable {
           return std::invoke(std::move(func), std::move(args)...);
